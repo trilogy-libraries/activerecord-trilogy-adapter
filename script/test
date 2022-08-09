@@ -1,0 +1,11 @@
+#!/bin/sh
+set -ex
+
+bundle install
+
+host=${DB_HOST:-localhost}
+port=${DB_PORT:-3306}
+
+mysql --protocol=tcp --host $host --port $port --user=root < "script/setup.sql"
+
+bundle exec rake

@@ -1,0 +1,9 @@
+FROM ruby:2.6.3
+LABEL maintainer="github@github.com"
+
+RUN apt-get update -qq && apt-get install -y default-mysql-client
+
+WORKDIR /app
+COPY . .
+
+CMD ["script/test"]
