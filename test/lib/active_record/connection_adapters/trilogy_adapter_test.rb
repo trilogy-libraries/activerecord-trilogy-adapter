@@ -116,6 +116,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
 
   test "#active? answers false without connection" do
     adapter = trilogy_adapter
+    adapter.disconnect!
     assert_equal false, adapter.active?
   end
 
@@ -848,7 +849,12 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   def trilogy_adapter(**config_overrides)
-    ActiveRecord::ConnectionAdapters::TrilogyAdapter
-      .new(@configuration.merge(config_overrides))
+    if ActiveRecord.version <= Gem::Version.new("7.0")
+      connection = Trilogy.new(@configuration)
+      trilogy_adapter_with_connection(connection, **config_overrides)
+    else
+      ActiveRecord::ConnectionAdapters::TrilogyAdapter
+        .new(@configuration.merge(config_overrides))
+    end
   end
 end

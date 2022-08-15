@@ -177,12 +177,26 @@ module ActiveRecord
       end
 
       private
-        def connection
-          @raw_connection
-        end
+        if ActiveRecord.version <= Gem::Version.new("7.0")
+          attr_accessor :connection
 
-        def connection=(conn)
-          @raw_connection = conn
+          alias any_raw_connection connection
+
+          def with_raw_connection(*)
+            yield connection
+          end
+
+          def default_timezone
+            @default_timezone || ActiveRecord.default_timezone
+          end
+        else
+          def connection
+            @raw_connection
+          end
+
+          def connection=(conn)
+            @raw_connection = conn
+          end
         end
 
         def connect
