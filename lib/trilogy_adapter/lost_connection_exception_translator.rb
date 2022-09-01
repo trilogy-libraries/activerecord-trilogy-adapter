@@ -35,7 +35,7 @@ module TrilogyAdapter
         case exception
         when Errno::EPIPE
           Errors::BrokenPipe.new(message)
-        when SocketError
+        when SocketError, IOError
           Errors::SocketError.new(message)
         when Errno::ECONNRESET
           Errors::ConnectionResetByPeer.new(message)
