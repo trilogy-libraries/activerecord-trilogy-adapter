@@ -96,6 +96,14 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     assert_equal "\\\"test\\\"", @adapter.quote_string(%("test"))
   end
 
+  test "#quote_string works when the connection is known to be closed" do
+    adapter = trilogy_adapter
+    adapter.connect!
+    adapter.instance_variable_get(:@raw_connection).close
+
+    assert_equal "\\\"test\\\"", adapter.quote_string(%("test"))
+  end
+
   test "#quoted_true answers TRUE" do
     assert_equal "TRUE", @adapter.quoted_true
   end

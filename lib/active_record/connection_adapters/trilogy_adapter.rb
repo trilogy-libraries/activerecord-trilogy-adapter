@@ -116,7 +116,9 @@ module ActiveRecord
       end
 
       def quote_string(string)
-        any_raw_connection.escape string
+        with_raw_connection(allow_retry: true, uses_transaction: false) do |conn|
+          conn.escape(string)
+        end
       end
 
       def active?
@@ -199,7 +201,9 @@ module ActiveRecord
         end
 
         def get_full_version
-          any_raw_connection.server_info[:version]
+          with_raw_connection(allow_retry: true, uses_transaction: false) do |conn|
+            conn.server_info[:version]
+          end
         end
 
         def translate_exception(exception, message:, sql:, binds:)
