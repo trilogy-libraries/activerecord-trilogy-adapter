@@ -212,6 +212,10 @@ module ActiveRecord
           ::TrilogyAdapter::LostConnectionExceptionTranslator.
             new(exception, message, error_code).translate || super
         end
+
+        def default_prepared_statements
+          false
+        end
     end
   end
 end
