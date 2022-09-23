@@ -32,6 +32,10 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     assert_match %(possible_keys), explain
   end
 
+  test "#default_prepared_statements" do
+    assert_not_predicate @pool.connection, :prepared_statements?
+  end
+
   test "#adapter_name answers name" do
     assert_equal "Trilogy", @adapter.adapter_name
   end
