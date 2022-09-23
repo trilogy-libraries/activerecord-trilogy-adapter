@@ -87,9 +87,6 @@ module ActiveRecord
         end
 
         def parse_ssl_mode(mode)
-          return unless mode
-
-          # return mode if it's already a Trilogy::SSL_MODE
           return mode if mode.is_a? Integer
 
           m = mode.to_s.upcase
