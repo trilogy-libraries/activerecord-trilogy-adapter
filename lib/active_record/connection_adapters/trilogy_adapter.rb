@@ -70,11 +70,30 @@ module ActiveRecord
 
       include DatabaseStatements
 
+      SSL_MODES = {
+        SSL_MODE_DISABLED: Trilogy::SSL_DISABLED,
+        SSL_MODE_PREFERRED: Trilogy::SSL_PREFERRED_NOVERIFY,
+        SSL_MODE_REQUIRED: Trilogy::SSL_REQUIRED_NOVERIFY,
+        SSL_MODE_VERIFY_CA: Trilogy::SSL_VERIFY_CA,
+        SSL_MODE_VERIFY_IDENTITY: Trilogy::SSL_VERIFY_IDENTITY
+      }.freeze
+
       class << self
         def new_client(config)
+          config[:ssl_mode] = parse_ssl_mode(config[:ssl_mode]) if config[:ssl_mode]
           ::Trilogy.new(config)
         rescue Trilogy::DatabaseError => error
           raise translate_connect_error(config, error)
+        end
+
+        def parse_ssl_mode(mode)
+          return mode if mode.is_a? Integer
+
+          m = mode.to_s.upcase
+          # enable Mysql2 client compatibility
+          m = "SSL_MODE_#{m}" unless m.start_with? "SSL_MODE_"
+
+          SSL_MODES.fetch(m.to_sym, mode)
         end
 
         def translate_connect_error(config, error)

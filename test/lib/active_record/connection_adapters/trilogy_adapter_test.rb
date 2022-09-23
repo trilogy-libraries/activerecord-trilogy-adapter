@@ -853,6 +853,27 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     ActiveRecord.query_transformers = old_query_transformers if ActiveRecord.respond_to?(:query_transformers)
   end
 
+  test "parses ssl_mode as int" do
+    adapter = trilogy_adapter(ssl_mode: 0)
+    adapter.connect!
+
+    assert adapter.active?
+  end
+
+  test "parses ssl_mode as string" do
+    adapter = trilogy_adapter(ssl_mode: "disabled")
+    adapter.connect!
+
+    assert adapter.active?
+  end
+
+  test "parses ssl_mode as string prefixed" do
+    adapter = trilogy_adapter(ssl_mode: "SSL_MODE_DISABLED")
+    adapter.connect!
+
+    assert adapter.active?
+  end
+
   def trilogy_adapter_with_connection(connection, **config_overrides)
     ActiveRecord::ConnectionAdapters::TrilogyAdapter
       .new(connection, nil, {}, @configuration.merge(config_overrides))
