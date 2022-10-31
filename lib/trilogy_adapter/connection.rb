@@ -14,6 +14,10 @@ module TrilogyAdapter
   #                                           host: "localhost",
   #                                           database: "demo_development"
   module Connection
+    def trilogy_adapter_class
+      ActiveRecord::ConnectionAdapters::TrilogyAdapter
+    end
+
     def trilogy_connection(config)
       configuration = config.dup
 
@@ -31,7 +35,7 @@ module TrilogyAdapter
         0
       ]
 
-      ActiveRecord::ConnectionAdapters::TrilogyAdapter.new nil, logger, options, configuration
+      trilogy_adapter_class.new nil, logger, options, configuration
     end
   end
 end
