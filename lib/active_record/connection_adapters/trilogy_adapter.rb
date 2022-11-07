@@ -149,6 +149,7 @@ module ActiveRecord
       alias reset! reconnect!
 
       def disconnect!
+        super
         unless connection.nil?
           connection.close
           self.connection = nil
