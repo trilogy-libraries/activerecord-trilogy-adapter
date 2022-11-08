@@ -30,13 +30,6 @@ module ActiveRecord
           MySQL::ExplainPrettyPrinter.new.pp(result, elapsed)
         end
 
-        def execute(sql, name = nil, async: false)
-          sql = transform_query(sql)
-          check_if_write_query(sql)
-
-          raw_execute(sql, name, async: async)
-        end
-
         def exec_query(sql, name = "SQL", binds = [], prepare: false, async: false)
           result = execute(sql, name, async: async)
           ActiveRecord::Result.new(result.fields, result.to_a)
