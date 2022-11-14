@@ -206,6 +206,7 @@ module ActiveRecord
 
         def reconnect
           connection&.close
+          self.connection = nil
           connect
         end
 
