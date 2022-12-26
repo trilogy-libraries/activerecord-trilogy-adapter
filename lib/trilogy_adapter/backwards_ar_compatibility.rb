@@ -6,7 +6,40 @@
 # ActiveRecord 7.1.  This works without requiring any code changes to the
 # ActiveRecord Trilogy Adapter itself.
 
+require "socket"
 module ::ActiveRecord
+  # For ActiveRecord <= 5.2
+  unless const_defined?("QueryAborted")
+    class QueryAborted < StatementInvalid
+    end
+  end
+
+  # For ActiveRecord <= 7.0
+  unless const_defined?("ConnectionFailed")
+    class ConnectionFailed < QueryAborted
+    end
+  end
+
+  begin
+    require "active_record/database_configurations"
+    # For ActiveRecord 6.0
+    unless DatabaseConfigurations.instance_methods.include?(:resolve)
+      DatabaseConfigurations.class_exec do
+        def resolve(config) # :nodoc:
+          @resolver ||= ::ActiveRecord::ConnectionAdapters::ConnectionSpecification::Resolver.new(::ActiveRecord::Base.configurations)
+          @resolver.resolve(config)
+        end
+      end
+    end
+  rescue LoadError
+    # For ActiveRecord <= 5.2
+    class DatabaseConfigurations < ::ActiveRecord::ConnectionAdapters::ConnectionSpecification::Resolver
+      def initialize(configurations = {}, *args)
+        super(::ActiveRecord::Base.configurations)
+      end
+    end
+  end
+
   require "active_record/connection_adapters/abstract_mysql_adapter"
   module ConnectionAdapters
     unless AbstractAdapter.private_instance_methods.include?(:with_raw_connection)
@@ -67,6 +100,12 @@ module ::ActiveRecord
       TrilogyAdapter.class_exec do
         # For ActiveRecord <= 7.0
         def initialize(*args, **kwargs)
+          if kwargs.present?
+            args << kwargs.dup
+            kwargs.clear
+          end
+          # Turn  .new(config)  into  .new(nil, nil, nil, config)
+          3.times { args.unshift nil } if args.length < 4
           super
           if @connection
             @verified = true
@@ -136,12 +175,58 @@ module ::ActiveRecord
       end
     end
 
+    if const_defined?("PoolConfig")
+      # ActiveRecord <= 6.1
+      if PoolConfig.instance_method(:initialize).parameters.length < 4
+        class PoolConfig
+          alias _original_initialize initialize
+          def initialize(connection_class, db_config, *args)
+            _original_initialize(connection_class, db_config)
+          end
+        end
+      end
+    else
+      # For ActiveRecord <= 5.2
+      class PoolConfig < ConnectionSpecification
+        def initialize(connection_class, db_config, *args)
+          super("primary", db_config, nil)
+        end
+      end
+    end
+
     # For ActiveRecord <= 5.2
     unless SchemaCache.instance_methods.include?(:database_version)
       SchemaCache.class_exec do
         def database_version # :nodoc:
           @database_version ||= connection.get_database_version
         end
+
+        def self.load_from(filename)
+          return unless File.file?(filename)
+
+          read(filename) do |file|
+            if filename.include?(".dump")
+              Marshal.load(file)
+            else
+              if YAML.respond_to?(:unsafe_load)
+                YAML.unsafe_load(file)
+              else
+                YAML.load(file)
+              end
+            end
+          end
+        end
+
+        def self.read(filename, &block)
+          if File.extname(filename) == ".gz"
+            Zlib::GzipReader.open(filename) { |gz|
+              yield gz.read
+            }
+          else
+            yield File.read(filename)
+          end
+        end
+        private_class_method :read
       end
     end
 
