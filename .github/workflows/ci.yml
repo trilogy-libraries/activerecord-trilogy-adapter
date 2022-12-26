@@ -26,7 +26,7 @@ jobs:
         path: vendor/cache
     - name: Start mysql
       run: docker run -d --rm --name=mysql -e MYSQL_ALLOW_EMPTY_PASSWORD=1 -p 3306:3306 --health-interval=1s --health-timeout=5s --health-retries=5  --volume="$(pwd)"/script/setup.sql:/docker-entrypoint-initdb.d/setup.sql  --health-cmd='mysql trilogy_test -e "select * from posts"'  mysql:5.7 --sql_mode=NO_ENGINE_SUBSTITUTION --log-bin --server-id=1 --gtid-mode=ON --enforce-gtid-consistency=ON
-    - uses: ruby/setup-ruby@ee2113536afb7f793eed4ce60e8d3b26db912da4
+    - uses: ruby/setup-ruby@03b78bdda287ae04217ee12e4b64996630a03542
       with:
         ruby-version: ${{ matrix.ruby_version }}
         bundler-cache: true
