@@ -21,7 +21,7 @@ class TestCase < ActiveSupport::TestCase
   DATABASE = "trilogy_test"
 
   setup do
-    @fixtures_path = Bundler.root.join "test", "support", "fixtures"
+    @fixtures_path = Pathname.new(File.expand_path(__dir__)).join "support", "fixtures"
   end
 
   def assert_raises_with_message(exception, message, &block)
