@@ -80,17 +80,12 @@ module ::ActiveRecord
             begin
               yield @raw_connection
             rescue StandardError => exception
-              @verified = false
+              @verified = false unless exception.is_a?(Deadlocked) || exception.is_a?(LockWaitTimeout)
               # raise translate_exception_class(exception, nil, nil)
               # raise translate_exception(exception, message: exception.message, sql: nil, binds: nil)
               raise exception
             end
           end
-        end
-
-        # For ActiveRecord <= 7.0
-        def default_timezone
-          ActiveRecord.default_timezone
         end
       end
     end
@@ -147,8 +142,14 @@ module ::ActiveRecord
           alias raw_execute execute
           def execute(sql, name = nil, **kwargs)
             @raw_connection = nil unless instance_variable_defined?(:@raw_connection)
-            reconnect if @raw_connection.nil? # || (@raw_connection.server_status & 1).positive?
+            # 16384 tests the bit flag for SERVER_SESSION_STATE_CHANGED, which gets set when the
+            # last statement executed has caused a change in the server's state.
+            # Was:  (!@verified && !active?)
+            reconnect if @raw_connection.nil? || (!@verified && (@raw_connection&.server_status & 16384).zero?)
             raw_execute(sql, name)
+          rescue => original_exception
+            @verified = false unless original_exception.is_a?(Deadlocked) || original_exception.is_a?(LockWaitTimeout)
+            raise
           end
         end
 
@@ -163,6 +164,18 @@ module ::ActiveRecord
 
         def full_version
           get_full_version
+        end
+
+        if ActiveRecord.respond_to?(:default_timezone)
+          # For ActiveRecord 7.0
+          def default_timezone
+            ActiveRecord.default_timezone
+          end
+        else
+          # For ActiveRecord <= 6.1
+          def default_timezone
+            ActiveRecord::Base.default_timezone
+          end
         end
 
         # For ActiveRecord <= 5.2
