@@ -8,6 +8,4 @@ else
   gem "activerecord", ENV["RAILS_VERSION"]
 end
 
-gem "appraisal", github: "bensheldon/appraisal", branch: "fix-bundle-env" # https://github.com/thoughtbot/appraisal/pull/174
-
 gemspec
