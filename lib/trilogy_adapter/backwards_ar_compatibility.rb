@@ -108,6 +108,11 @@ module ::ActiveRecord
             # last statement executed has caused a change in the server's state.
             # Was:  (!@verified && !active?)
             reconnect if @raw_connection.nil? || (!@verified && (@raw_connection&.server_status & 16384).zero?)
+            if default_timezone == :local
+              @raw_connection.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
+            else
+              @raw_connection.query_flags &= ~::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
+            end
             raw_execute(sql, name)
           rescue => original_exception
             @verified = false unless original_exception.is_a?(Deadlocked) || original_exception.is_a?(LockWaitTimeout)
