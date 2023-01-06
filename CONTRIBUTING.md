@@ -19,7 +19,7 @@ For local development, run:
 
 To test, run:
 
-    bundle exec appraisal rails-head rake
+    bundle exec rake
 
 ## Submitting a pull request
 
