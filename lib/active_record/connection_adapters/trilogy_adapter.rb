@@ -75,7 +75,7 @@ module ActiveRecord
         def new_client(config)
           config[:ssl_mode] = parse_ssl_mode(config[:ssl_mode]) if config[:ssl_mode]
           ::Trilogy.new(config)
-        rescue Trilogy::DatabaseError => error
+        rescue Trilogy::ProtocolError => error
           raise translate_connect_error(config, error)
         end
 
