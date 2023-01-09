@@ -27,6 +27,33 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     @adapter.disconnect!
   end
 
+  test ".new_client" do
+    client = @adapter.class.new_client(@configuration)
+    assert_equal Trilogy, client.class
+  end
+
+  test ".new_client on db error" do
+    configuration = @configuration.merge(database: "unknown")
+    assert_raises ActiveRecord::NoDatabaseError do
+      @adapter.class.new_client(configuration)
+    end
+  end
+
+  test ".new_client on access denied error" do
+    configuration = @configuration.merge(username: "unknown")
+    assert_raises ActiveRecord::DatabaseConnectionError do
+      @adapter.class.new_client(configuration)
+    end
+  end
+
+  test ".new_client on host error" do
+    configuration = @configuration.merge(host: "unknown")
+    # TODO: This should be a DatabaseConnectionError
+    assert_raises Trilogy::QueryError do
+      @adapter.class.new_client(configuration)
+    end
+  end
+
   test "#explain for one query" do
     explain = @adapter.explain("select * from posts")
     assert_match %(possible_keys), explain
