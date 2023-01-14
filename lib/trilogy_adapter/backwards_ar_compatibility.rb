@@ -80,12 +80,18 @@ module ::ActiveRecord
         def with_raw_connection(allow_retry: false, uses_transaction: true)
           @lock.synchronize do
             @raw_connection = @connection || nil unless instance_variable_defined?(:@raw_connection)
-            verify! unless @verified # || (@raw_connection&.closed? == false && (@raw_connection.server_status & 1).positive?)
+            unless @verified
+              verify!
+              @verified = true
+            end
             materialize_transactions if uses_transaction
             begin
               yield @raw_connection
             rescue StandardError => exception
-              @verified = false unless exception.is_a?(Deadlocked) || exception.is_a?(LockWaitTimeout)
+              @verified = false unless exception.is_a?(Deadlocked) || exception.is_a?(LockWaitTimeout) ||
+                                       # Timed out while in a transaction
+                                       ((@raw_connection.server_status & 1).positive? &&
+                                        exception.is_a?(Errno::ETIMEDOUT))
               raise
             end
           end
@@ -155,7 +161,6 @@ module ::ActiveRecord
           alias raw_execute execute
           def execute(sql, name = nil, **kwargs)
             @raw_connection = nil unless instance_variable_defined?(:@raw_connection)
-            # Was:  (!@verified && !active?)
             reconnect if @raw_connection.nil? || (!@verified && (@raw_connection.server_status & 16384).zero?)
             if default_timezone == :local
               @raw_connection.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
@@ -166,19 +171,16 @@ module ::ActiveRecord
           rescue => exception
             return if exception.is_a?(Deadlocked)
 
-            @verified = false unless exception.is_a?(LockWaitTimeout)
+            @verified = false unless exception.is_a?(LockWaitTimeout) ||
+                                     ((@raw_connection.server_status & 1).positive? &&
+                                      exception.cause.is_a?(Errno::ETIMEDOUT))
             raise
           end
         else # For ActiveRecord 7.0
           def execute(sql, name = nil, **kwargs)
             sql = transform_query(sql)
             check_if_write_query(sql)
-            begin
-              super
-            rescue => exception
-              @verified = true if exception.is_a?(ActiveRecord::StatementInvalid) && (@raw_connection.server_status & 16384).positive?
-              raise
-            end
+            super
           end
         end
 
