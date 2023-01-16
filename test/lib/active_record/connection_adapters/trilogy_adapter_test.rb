@@ -449,7 +449,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     assert adapter.active?
 
     # Make connection lost for future queries by exceeding the read timeout
-    assert_raises(Errno::ETIMEDOUT) do
+    assert_raises(Trilogy::TimeoutError) do
       connection.query "SELECT sleep(2);"
     end
     assert_not adapter.active?
@@ -530,7 +530,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
       adapter.execute("SELECT 1")
 
       # Cause the client to disconnect without the adapter's awareness
-      assert_raises Errno::ETIMEDOUT do
+      assert_raises Trilogy::TimeoutError do
         adapter.send(:connection).query("SELECT sleep(2)")
       end
 
@@ -552,7 +552,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
         adapter.execute("SELECT 1")
 
         # Cause the client to disconnect without the adapter's awareness
-        assert_raises Errno::ETIMEDOUT do
+        assert_raises Trilogy::TimeoutError do
           adapter.send(:connection).query("SELECT sleep(2)")
         end
       end
