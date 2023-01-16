@@ -48,8 +48,14 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
 
   test ".new_client on host error" do
     configuration = @configuration.merge(host: "unknown")
-    # TODO: This should be a DatabaseConnectionError
-    assert_raises Trilogy::QueryError do
+    assert_raises ActiveRecord::DatabaseConnectionError do
+      @adapter.class.new_client(configuration)
+    end
+  end
+
+  test ".new_client on port error" do
+    configuration = @configuration.merge(port: 1234)
+    assert_raises ActiveRecord::ConnectionNotEstablished do
       @adapter.class.new_client(configuration)
     end
   end
