@@ -87,11 +87,12 @@ module ::ActiveRecord
             materialize_transactions if uses_transaction
             begin
               yield @raw_connection
-            rescue StandardError => exception
-              @verified = false unless exception.is_a?(Deadlocked) || exception.is_a?(LockWaitTimeout) ||
-                                       # Timed out while in a transaction
-                                       ((@raw_connection.server_status & 1).positive? &&
-                                        exception.is_a?(Errno::ETIMEDOUT))
+            rescue StandardError => e
+              @verified = false unless e.is_a?(Deadlocked) || e.is_a?(LockWaitTimeout) ||
+                                       ( # Timed out while in a transaction?
+                                         (@raw_connection.server_status & 1).positive? &&
+                                         (e.is_a?(Trilogy::ClientError) || e.is_a?(Errno::ETIMEDOUT))
+                                       )
               raise
             end
           end
@@ -219,6 +220,15 @@ module ::ActiveRecord
           _original_initialize(connection_class, db_config)
         end
       end
+    end
+  end
+end
+
+# A do-nothing placeholder allowing AR 7.0 to function when the Trilogy driver is not patched with PR#15:
+# https://github.com/github/trilogy/pull/15
+class ::Trilogy
+  unless const_defined?('ClientError')
+    class ClientError < ::StandardError
     end
   end
 end
