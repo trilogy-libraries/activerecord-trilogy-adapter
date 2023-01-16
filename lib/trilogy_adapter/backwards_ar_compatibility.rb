@@ -7,6 +7,7 @@
 # ActiveRecord Trilogy Adapter itself.
 
 require "socket"
+# :nodoc:
 module ::ActiveRecord
   # For ActiveRecord <= 7.0
   unless const_defined?("ConnectionFailed")
@@ -16,7 +17,7 @@ module ::ActiveRecord
 
   # For ActiveRecord <= 6.1
   unless const_defined?("DatabaseConnectionError")
-    class DatabaseConnectionError < ConnectionNotEstablished
+    class DatabaseConnectionError < ConnectionNotEstablished # :nodoc:
       def initialize(message = nil)
         super(message || "Database connection error")
       end
@@ -58,26 +59,30 @@ module ::ActiveRecord
   end
 
   require "active_record/connection_adapters/abstract_mysql_adapter"
-  module ConnectionAdapters
+  module ConnectionAdapters # :nodoc:
     unless AbstractAdapter.private_instance_methods.include?(:with_raw_connection)
       AbstractAdapter.class_exec do
         # For ActiveRecord <= 6.1
-        unless ::ActiveRecord::ConnectionAdapters::AbstractAdapter::Version.instance_methods.include?(:full_version_string)
-          class ::ActiveRecord::ConnectionAdapters::AbstractAdapter::Version
-            attr_reader :full_version_string
+        unless self::Version.instance_methods.include?(:full_version_string)
+          module ::ActiveRecord
+            module ConnectionAdapters
+              class AbstractAdapter::Version # :nodoc:
+                attr_reader :full_version_string
 
-            alias _original_initialize initialize
-            def initialize(version_string, full_version_string = nil)
-              _original_initialize(version_string)
-              @full_version_string = full_version_string
+                alias _original_initialize initialize
+                def initialize(version_string, full_version_string = nil)
+                  _original_initialize(version_string)
+                  @full_version_string = full_version_string
+                end
+              end
             end
           end
         end
 
-      private
+        private
 
         # For ActiveRecord <= 7.0
-        def with_raw_connection(allow_retry: false, uses_transaction: true)
+        def with_raw_connection(uses_transaction: true, **_kwargs)
           @lock.synchronize do
             @raw_connection = @connection || nil unless instance_variable_defined?(:@raw_connection)
             unless @verified
@@ -127,7 +132,7 @@ module ::ActiveRecord
           self
         end
 
-        alias _original_active? active?
+        alias_method :_original_active?, :active?
         def active?
           return false if connection&.closed?
 
@@ -138,17 +143,17 @@ module ::ActiveRecord
           @lock.synchronize do
             disconnect!
             connect
-          rescue => original_exception
+          rescue StandardError => original_exception
             @verified = false
             raise translate_exception_class(original_exception, nil, nil)
           end
         end
-        alias :reset! :reconnect!
+        alias_method :reset!, :reconnect!
 
         def exec_rollback_db_transaction
           # 16384 tests the bit flag for SERVER_SESSION_STATE_CHANGED, which gets set when the
           # last statement executed has caused a change in the server's state.
-          if active? || (@raw_connection.server_status & 16384).positive?
+          if active? || (@raw_connection.server_status & 16_384).positive?
             super
           else
             @verified = false
@@ -159,22 +164,22 @@ module ::ActiveRecord
         if AbstractMysqlAdapter.instance_method(:execute).parameters.length < 3
           # Adds an #execute specific to the TrilogyAdapter that allows
           # (but disregards) +async+ and other keyword parameters.
-          alias raw_execute execute
-          def execute(sql, name = nil, **kwargs)
+          alias_method :raw_execute, :execute
+          def execute(sql, name = nil, **_kwargs)
             @raw_connection = nil unless instance_variable_defined?(:@raw_connection)
-            reconnect if @raw_connection.nil? || (!@verified && (@raw_connection.server_status & 16384).zero?)
+            reconnect if @raw_connection.nil? || (!@verified && (@raw_connection.server_status & 16_384).zero?)
             if default_timezone == :local
               @raw_connection.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
             else
               @raw_connection.query_flags &= ~::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
             end
             raw_execute(sql, name)
-          rescue => exception
-            return if exception.is_a?(Deadlocked)
+          rescue StandardError => e
+            return if e.is_a?(Deadlocked)
 
-            @verified = false unless exception.is_a?(LockWaitTimeout) ||
+            @verified = false unless e.is_a?(LockWaitTimeout) ||
                                      ((@raw_connection.server_status & 1).positive? &&
-                                      exception.cause.is_a?(Errno::ETIMEDOUT))
+                                      e.cause.is_a?(Errno::ETIMEDOUT))
             raise
           end
         else # For ActiveRecord 7.0
@@ -185,10 +190,8 @@ module ::ActiveRecord
           end
         end
 
-      private
-
         # For ActiveRecord <= 7.0
-        alias _original_connection_equals connection=
+        alias_method :_original_connection_equals, :connection=
         def connection=(*args)
           @verified = false unless (@connection = _original_connection_equals(*args))
           @connection
@@ -214,9 +217,9 @@ module ::ActiveRecord
 
     # ActiveRecord <= 6.1
     if const_defined?("PoolConfig") && PoolConfig.instance_method(:initialize).parameters.length < 4
-      class PoolConfig
+      class PoolConfig # :nodoc:
         alias _original_initialize initialize
-        def initialize(connection_class, db_config, *args)
+        def initialize(connection_class, db_config, *_args)
           _original_initialize(connection_class, db_config)
         end
       end
