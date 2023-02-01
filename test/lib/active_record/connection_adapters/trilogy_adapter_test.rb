@@ -40,6 +40,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   test ".new_client on access denied error" do
+    skip("Test fails intermittently with TRILOGY_PROTOCOL_VIOLATION. See https://github.com/github/trilogy/pull/42")
     configuration = @configuration.merge(username: "unknown")
     assert_raises ActiveRecord::DatabaseConnectionError do
       @adapter.class.new_client(configuration)
