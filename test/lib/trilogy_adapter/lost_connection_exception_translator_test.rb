@@ -5,7 +5,7 @@ require "test_helper"
 class TrilogyAdapter::LostConnectionExceptionTranslatorTest < TestCase
   test "#translate returns appropriate TrilogyAdapter error for Trilogy exceptions" do
     translator = TrilogyAdapter::LostConnectionExceptionTranslator.new(
-      Trilogy::DatabaseError.new,
+      Trilogy::ProtocolError.new,
       "ER_SERVER_SHUTDOWN 1053",
       1053
     )
@@ -15,7 +15,7 @@ class TrilogyAdapter::LostConnectionExceptionTranslatorTest < TestCase
 
   test "#translate returns nil for Trilogy exceptions when the error code is not given" do
     translator = TrilogyAdapter::LostConnectionExceptionTranslator.new(
-      Trilogy::DatabaseError.new,
+      Trilogy::ProtocolError.new,
       "ER_SERVER_SHUTDOWN 1053",
       nil
     )
@@ -35,7 +35,7 @@ class TrilogyAdapter::LostConnectionExceptionTranslatorTest < TestCase
 
   test "#translate returns appropriate TrilogyAdapter error for lost connection Trilogy exceptions" do
     translator = TrilogyAdapter::LostConnectionExceptionTranslator.new(
-      Trilogy::Error.new,
+      Trilogy::BaseError.new,
       "TRILOGY_UNEXPECTED_PACKET",
       nil
     )
@@ -45,7 +45,7 @@ class TrilogyAdapter::LostConnectionExceptionTranslatorTest < TestCase
 
   test "#translate returns nil for non-lost connection exceptions" do
     translator = TrilogyAdapter::LostConnectionExceptionTranslator.new(
-      Trilogy::Error.new,
+      Trilogy::BaseError.new,
       "Something bad happened but it wasn't a lost connection so...",
       nil
     )

@@ -61,7 +61,8 @@ module ::ActiveRecord
   require "active_record/connection_adapters/abstract_mysql_adapter"
   module ConnectionAdapters # :nodoc:
     unless AbstractAdapter.private_instance_methods.include?(:with_raw_connection)
-      AbstractAdapter.class_exec do
+      require "active_record/connection_adapters/trilogy_adapter"
+      TrilogyAdapter.class_exec do
         # For ActiveRecord <= 6.1
         unless self::Version.instance_methods.include?(:full_version_string)
           module ::ActiveRecord
@@ -229,6 +230,7 @@ end
 
 # A do-nothing placeholder allowing AR 7.0 to function when the Trilogy driver is not patched with PR#15:
 # https://github.com/github/trilogy/pull/15
+require 'trilogy'
 class ::Trilogy
   unless const_defined?('ClientError')
     class ClientError < ::StandardError

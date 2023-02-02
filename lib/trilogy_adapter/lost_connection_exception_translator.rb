@@ -37,8 +37,10 @@ module TrilogyAdapter
           Errors::BrokenPipe.new(message)
         when SocketError, IOError
           Errors::SocketError.new(message)
-        when Errno::ECONNRESET
-          Errors::ConnectionResetByPeer.new(message)
+        when Trilogy::ConnectionError
+          if message.match?(/Connection reset by peer/)
+            Errors::ConnectionResetByPeer.new(message)
+          end
         end
       end
 
