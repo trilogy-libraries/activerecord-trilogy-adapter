@@ -890,7 +890,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
 
     # Add custom query transformer
     old_query_transformers = ActiveRecord.query_transformers
-    ActiveRecord.query_transformers = [-> (sql, _adapter) { sql + " /* it works */" }]
+    ActiveRecord.query_transformers = [-> (sql, *args) { sql + " /* it works */" }]
 
     sql = "SELECT * FROM posts;"
 
