@@ -56,8 +56,6 @@ module ActiveRecord
 
       ER_BAD_DB_ERROR = 1049
       ER_ACCESS_DENIED_ERROR = 1045
-      ER_CONN_HOST_ERROR = 2003
-      ER_UNKNOWN_HOST_ERROR = 2005
 
       ADAPTER_NAME = "Trilogy"
 
@@ -75,7 +73,7 @@ module ActiveRecord
         def new_client(config)
           config[:ssl_mode] = parse_ssl_mode(config[:ssl_mode]) if config[:ssl_mode]
           ::Trilogy.new(config)
-        rescue Trilogy::DatabaseError => error
+        rescue Trilogy::ConnectionError, Trilogy::ProtocolError => error
           raise translate_connect_error(config, error)
         end
 
@@ -95,10 +93,12 @@ module ActiveRecord
             ActiveRecord::NoDatabaseError.db_error(config[:database])
           when ER_ACCESS_DENIED_ERROR
             ActiveRecord::DatabaseConnectionError.username_error(config[:username])
-          when ER_CONN_HOST_ERROR, ER_UNKNOWN_HOST_ERROR
-            ActiveRecord::DatabaseConnectionError.hostname_error(config[:host])
           else
-            ActiveRecord::ConnectionNotEstablished.new(error.message)
+            if error.message.match?(/TRILOGY_DNS_ERROR/)
+              ActiveRecord::DatabaseConnectionError.hostname_error(config[:host])
+            else
+              ActiveRecord::ConnectionNotEstablished.new(error.message)
+            end
           end
         end
       end
