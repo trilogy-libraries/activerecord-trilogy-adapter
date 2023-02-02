@@ -153,13 +153,99 @@ module ActiveRecord
         self.connection = nil
       end
 
+      # ActiveRecord 7.0 support
+      if ActiveRecord.version < ::Gem::Version.new('7.1.a')
+        def initialize(*args, **kwargs)
+          if kwargs.present?
+            args << kwargs.dup
+            kwargs.clear
+          end
+          # Turn  .new(config)  into  .new(nil, nil, nil, config)
+          3.times { args.unshift nil } if args.length < 4
+          super
+          if @connection
+            @verified = true
+            @raw_connection = @connection
+          end
+          # Ensure that we're treating prepared_statements in the same way that Rails 7.1 does
+          @prepared_statements = self.class.type_cast_config_to_boolean(
+            @config.fetch(:prepared_statements) { default_prepared_statements }
+          )
+        end
+
+        def connect!
+          verify!
+          self
+        end
+
+        alias_method :_original_active?, :active?
+        def active?
+          return false if connection&.closed?
+
+          _original_active?
+        end
+
+        def reconnect!
+          @lock.synchronize do
+            disconnect!
+            connect
+          rescue StandardError => original_exception
+            @verified = false
+            raise translate_exception_class(original_exception, nil, nil)
+          end
+        end
+        alias_method :reset!, :reconnect!
+
+        def exec_rollback_db_transaction
+          # 16384 tests the bit flag for SERVER_SESSION_STATE_CHANGED, which gets set when the
+          # last statement executed has caused a change in the server's state.
+          if active? || (@raw_connection.server_status & 16_384).positive?
+            super
+          else
+            @verified = false
+          end
+        end
+
+        def with_raw_connection(uses_transaction: true, **_kwargs)
+          @lock.synchronize do
+            @raw_connection = @connection || nil unless instance_variable_defined?(:@raw_connection)
+            unless @verified
+              verify!
+              @verified = true
+            end
+            materialize_transactions if uses_transaction
+            begin
+              yield @raw_connection
+            rescue StandardError => e
+              @verified = false unless e.is_a?(Deadlocked) || e.is_a?(LockWaitTimeout) ||
+                                       ( # Timed out while in a transaction?
+                                         @raw_connection &&
+                                         (@raw_connection.server_status & 1).positive? &&
+                                         (e.is_a?(Trilogy::ClientError) || e.is_a?(Errno::ETIMEDOUT))
+                                       )
+              raise
+            end
+          end
+        end
+
+        def execute(sql, name = nil, **kwargs)
+          sql = transform_query(sql)
+          check_if_write_query(sql)
+          super
+        end
+
+        def full_version
+          get_full_version
+        end
+      end
+
       def raw_execute(sql, name, async: false, allow_retry: false, uses_transaction: true)
         mark_transaction_written_if_write(sql)
 
         log(sql, name, async: async) do
           with_raw_connection(allow_retry: allow_retry, uses_transaction: uses_transaction) do |conn|
             # Sync any changes since connection last established.
-            if default_timezone == :local
+            if ActiveRecord.default_timezone == :local
               conn.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
             else
               conn.query_flags &= ~::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
@@ -197,6 +283,10 @@ module ActiveRecord
         end
 
         def connection=(conn)
+          if ActiveRecord.version < ::Gem::Version.new('7.1.a')
+            @verified = false unless (@connection = conn)
+          end
+
           @raw_connection = conn
         end
 

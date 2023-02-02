@@ -1,5 +1,12 @@
 # frozen_string_literal: true
 
+module ActiveRecord
+  if version < ::Gem::Version.new('7.1.a')
+    class ConnectionFailed < QueryAborted
+    end
+  end
+end
+
 module TrilogyAdapter
   module Errors
     # ServerShutdown will be raised when the database server was shutdown.
