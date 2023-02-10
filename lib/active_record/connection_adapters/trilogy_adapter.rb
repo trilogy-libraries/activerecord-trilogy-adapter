@@ -139,8 +139,6 @@ module ActiveRecord
         false
       end
 
-      alias reset! reconnect!
-
       def disconnect!
         super
         unless connection.nil?
@@ -155,13 +153,7 @@ module ActiveRecord
 
       # ActiveRecord 7.0 support
       if ActiveRecord.version < ::Gem::Version.new('7.1.a')
-        def initialize(*args, **kwargs)
-          if kwargs.present?
-            args << kwargs.dup
-            kwargs.clear
-          end
-          # Turn  .new(config)  into  .new(nil, nil, nil, config)
-          3.times { args.unshift nil } if args.length < 4
+        def initialize(connection, logger, connection_options, config)
           super
           if @connection
             @verified = true
@@ -194,7 +186,6 @@ module ActiveRecord
             raise translate_exception_class(original_exception, nil, nil)
           end
         end
-        alias_method :reset!, :reconnect!
 
         def exec_rollback_db_transaction
           # 16384 tests the bit flag for SERVER_SESSION_STATE_CHANGED, which gets set when the
@@ -238,6 +229,8 @@ module ActiveRecord
           get_full_version
         end
       end
+
+      alias_method :reset!, :reconnect!
 
       def raw_execute(sql, name, async: false, allow_retry: false, uses_transaction: true)
         mark_transaction_written_if_write(sql)

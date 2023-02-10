@@ -934,7 +934,9 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   def trilogy_adapter(**config_overrides)
-    ActiveRecord::ConnectionAdapters::TrilogyAdapter
-      .new(@configuration.merge(config_overrides))
+    arguments = [@configuration.merge(config_overrides)]
+    # For AR 7.0 turn  .new(config)  into  .new(nil, nil, nil, config)
+    3.times { arguments.unshift nil } if ::ActiveRecord.version < ::Gem::Version.new('7.1.a')
+    ActiveRecord::ConnectionAdapters::TrilogyAdapter.new(*arguments)
   end
 end

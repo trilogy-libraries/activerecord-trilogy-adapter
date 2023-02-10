@@ -19,7 +19,7 @@ Gem::Specification.new do |spec|
   }
 
   spec.add_dependency "trilogy", ">= 2.1.1"
-  spec.add_dependency "activerecord", ">= 5.0"
+  spec.add_dependency "activerecord", ">= 7.0"
   spec.add_development_dependency "minitest", "~> 5.11"
   spec.add_development_dependency "minitest-focus", "~> 1.1"
   spec.add_development_dependency "pry", "~> 0.10"
