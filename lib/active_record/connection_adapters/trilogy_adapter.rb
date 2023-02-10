@@ -134,6 +134,8 @@ module ActiveRecord
       end
 
       def active?
+        return false if connection&.closed?
+
         connection&.ping || false
       rescue ::Trilogy::Error
         false
@@ -168,13 +170,6 @@ module ActiveRecord
         def connect!
           verify!
           self
-        end
-
-        alias_method :_original_active?, :active?
-        def active?
-          return false if connection&.closed?
-
-          _original_active?
         end
 
         def reconnect!
