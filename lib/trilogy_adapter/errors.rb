@@ -1,52 +1,51 @@
 # frozen_string_literal: true
 
-module ActiveRecord
-  if version < ::Gem::Version.new('7.1.a')
-    class ConnectionFailed < QueryAborted
-    end
-  end
-end
-
 module TrilogyAdapter
   module Errors
+    connection_failed_base = if ::ActiveRecord.version < ::Gem::Version.new('7.1.a')
+                               ::ActiveRecord::QueryAborted
+                             else
+                               ::ActiveRecord::ConnectionFailed
+                             end
+
     # ServerShutdown will be raised when the database server was shutdown.
-    class ServerShutdown < ActiveRecord::ConnectionFailed
+    class ServerShutdown < connection_failed_base
     end
 
     # ServerLost will be raised when the database connection was lost.
-    class ServerLost < ActiveRecord::ConnectionFailed
+    class ServerLost < connection_failed_base
     end
 
     # ServerGone will be raised when the database connection is gone.
-    class ServerGone < ActiveRecord::ConnectionFailed
+    class ServerGone < connection_failed_base
     end
 
     # BrokenPipe will be raised when a system process connection fails.
-    class BrokenPipe < ActiveRecord::ConnectionFailed
+    class BrokenPipe < connection_failed_base
     end
 
     # SocketError will be raised when Ruby encounters a network error.
-    class SocketError < ActiveRecord::ConnectionFailed
+    class SocketError < connection_failed_base
     end
 
     # ConnectionResetByPeer will be raised when a network connection is closed
     # outside the sytstem process.
-    class ConnectionResetByPeer < ActiveRecord::ConnectionFailed
+    class ConnectionResetByPeer < connection_failed_base
     end
 
     # ClosedConnection will be raised when the Trilogy encounters a closed
     # connection.
-    class ClosedConnection < ActiveRecord::ConnectionFailed
+    class ClosedConnection < connection_failed_base
     end
 
     # InvalidSequenceId will be raised when Trilogy ecounters an invalid sequence
     # id.
-    class InvalidSequenceId < ActiveRecord::ConnectionFailed
+    class InvalidSequenceId < connection_failed_base
     end
 
     # UnexpectedPacket will be raised when Trilogy ecounters an unexpected
     # response packet.
-    class UnexpectedPacket < ActiveRecord::ConnectionFailed
+    class UnexpectedPacket < connection_failed_base
     end
   end
 end
