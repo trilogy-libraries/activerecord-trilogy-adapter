@@ -153,23 +153,6 @@ module ActiveRecord
         self.connection = nil
       end
 
-      def raw_execute(sql, name, async: false, allow_retry: false, uses_transaction: true)
-        mark_transaction_written_if_write(sql)
-
-        log(sql, name, async: async) do
-          with_raw_connection(allow_retry: allow_retry, uses_transaction: uses_transaction) do |conn|
-            # Sync any changes since connection last established.
-            if default_timezone == :local
-              conn.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
-            else
-              conn.query_flags &= ~::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
-            end
-
-            conn.query(sql)
-          end
-        end
-      end
-
       def each_hash(result)
         return to_enum(:each_hash, result) unless block_given?
 
@@ -208,6 +191,15 @@ module ActiveRecord
           connection&.close
           self.connection = nil
           connect
+        end
+
+        def sync_timezone_changes(conn)
+          # Sync any changes since connection last established.
+          if default_timezone == :local
+            conn.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
+          else
+            conn.query_flags &= ~::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
+          end
         end
 
         def full_version
