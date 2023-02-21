@@ -232,13 +232,7 @@ module ActiveRecord
 
         log(sql, name, async: async) do
           with_raw_connection(allow_retry: allow_retry, uses_transaction: uses_transaction) do |conn|
-            # Sync any changes since connection last established.
-            if ActiveRecord.default_timezone == :local
-              conn.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
-            else
-              conn.query_flags &= ~::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
-            end
-
+            sync_timezone_changes(conn)
             conn.query(sql)
           end
         end
@@ -286,6 +280,15 @@ module ActiveRecord
           connection&.close
           self.connection = nil
           connect
+        end
+
+        def sync_timezone_changes(conn)
+          # Sync any changes since connection last established.
+          if ActiveRecord.default_timezone == :local
+            conn.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
+          else
+            conn.query_flags &= ~::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
+          end
         end
 
         def full_version
