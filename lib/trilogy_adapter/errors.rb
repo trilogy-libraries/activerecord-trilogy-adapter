@@ -2,7 +2,7 @@
 
 module TrilogyAdapter
   module Errors
-    connection_failed_base = if ::ActiveRecord.version < ::Gem::Version.new('7.1.a')
+    connection_failed_base = if ::ActiveRecord.version < ::Gem::Version.new("7.1.a")
                                ::ActiveRecord::QueryAborted
                              else
                                ::ActiveRecord::ConnectionFailed

@@ -158,7 +158,6 @@ module ActiveRecord
         def initialize(connection, logger, connection_options, config)
           super
           if @connection
-            @verified = true
             @raw_connection = @connection
           end
           # Ensure that we're treating prepared_statements in the same way that Rails 7.1 does
@@ -177,40 +176,16 @@ module ActiveRecord
             disconnect!
             connect
           rescue StandardError => original_exception
-            @verified = false
             raise translate_exception_class(original_exception, nil, nil)
-          end
-        end
-
-        def exec_rollback_db_transaction
-          # 16384 tests the bit flag for SERVER_SESSION_STATE_CHANGED, which gets set when the
-          # last statement executed has caused a change in the server's state.
-          if active? || (@raw_connection.server_status & 16_384).positive?
-            super
-          else
-            @verified = false
           end
         end
 
         def with_raw_connection(uses_transaction: true, **_kwargs)
           @lock.synchronize do
             @raw_connection = @connection || nil unless instance_variable_defined?(:@raw_connection)
-            unless @verified
-              verify!
-              @verified = true
-            end
+            verify!
             materialize_transactions if uses_transaction
-            begin
-              yield @raw_connection
-            rescue StandardError => e
-              @verified = false unless e.is_a?(Deadlocked) || e.is_a?(LockWaitTimeout) ||
-                                       ( # Timed out while in a transaction?
-                                         @raw_connection &&
-                                         (@raw_connection.server_status & 1).positive? &&
-                                         (e.is_a?(Trilogy::ClientError) || e.is_a?(Errno::ETIMEDOUT))
-                                       )
-              raise
-            end
+            yield @raw_connection
           end
         end
 
@@ -269,10 +244,7 @@ module ActiveRecord
         end
 
         def connection=(conn)
-          if ActiveRecord.version < ::Gem::Version.new('7.1.a')
-            @verified = false unless (@connection = conn)
-          end
-
+          @connection = conn if ActiveRecord.version < ::Gem::Version.new('7.1.a')
           @raw_connection = conn
         end
 

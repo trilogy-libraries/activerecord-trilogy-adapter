@@ -444,6 +444,8 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   test "#execute answers results for valid query after losing connection unexpectedly" do
+    return skip if ::ActiveRecord.version < ::Gem::Version.new("7.1.a")
+
     connection = Trilogy.new(@configuration.merge(read_timeout: 1))
 
     adapter = trilogy_adapter_with_connection(connection)
@@ -497,6 +499,8 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   test "#execute fails if the connection is closed" do
+    return skip if ::ActiveRecord.version < ::Gem::Version.new("7.1.a")
+
     connection = Trilogy.new(@configuration.merge(read_timeout: 1))
 
     adapter = trilogy_adapter_with_connection(connection)
@@ -543,6 +547,8 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   test "can reconnect after failing to commit" do
+    return skip if ::ActiveRecord.version < ::Gem::Version.new("7.1.a")
+
     connection = Trilogy.new(@configuration.merge(read_timeout: 1))
 
     adapter = trilogy_adapter_with_connection(connection)
@@ -936,7 +942,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   def trilogy_adapter(**config_overrides)
     arguments = [@configuration.merge(config_overrides)]
     # For AR 7.0 turn  .new(config)  into  .new(nil, nil, nil, config)
-    3.times { arguments.unshift nil } if ::ActiveRecord.version < ::Gem::Version.new('7.1.a')
+    3.times { arguments.unshift nil } if ::ActiveRecord.version < ::Gem::Version.new("7.1.a")
     ActiveRecord::ConnectionAdapters::TrilogyAdapter.new(*arguments)
   end
 end
