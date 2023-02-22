@@ -128,7 +128,7 @@ module ActiveRecord
       end
 
       def quote_string(string)
-        with_raw_connection(allow_retry: true, uses_transaction: false) do |conn|
+        with_trilogy_connection(allow_retry: true, uses_transaction: false) do |conn|
           conn.escape(string)
         end
       end
@@ -180,7 +180,7 @@ module ActiveRecord
           end
         end
 
-        def with_raw_connection(uses_transaction: true, **_kwargs)
+        def with_trilogy_connection(uses_transaction: true, **_kwargs)
           @lock.synchronize do
             @raw_connection = @connection || nil unless instance_variable_defined?(:@raw_connection)
             verify!
@@ -202,6 +202,8 @@ module ActiveRecord
         def default_timezone
           ActiveRecord.default_timezone
         end
+      else # ActiveRecord >= 7.1 support
+        alias_method :with_trilogy_connection, :with_raw_connection
       end
 
       alias_method :reset!, :reconnect!
@@ -210,7 +212,7 @@ module ActiveRecord
         mark_transaction_written_if_write(sql)
 
         log(sql, name, async: async) do
-          with_raw_connection(allow_retry: allow_retry, uses_transaction: uses_transaction) do |conn|
+          with_trilogy_connection(allow_retry: allow_retry, uses_transaction: uses_transaction) do |conn|
             sync_timezone_changes(conn)
             conn.query(sql)
           end
@@ -272,7 +274,7 @@ module ActiveRecord
         end
 
         def get_full_version
-          with_raw_connection(allow_retry: true, uses_transaction: false) do |conn|
+          with_trilogy_connection(allow_retry: true, uses_transaction: false) do |conn|
             conn.server_info[:version]
           end
         end
