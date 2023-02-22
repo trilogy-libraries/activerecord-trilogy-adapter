@@ -223,6 +223,10 @@ module ActiveRecord
         def full_version
           get_full_version
         end
+
+        def default_timezone
+          ActiveRecord.default_timezone
+        end
       end
 
       alias_method :reset!, :reconnect!
@@ -284,7 +288,7 @@ module ActiveRecord
 
         def sync_timezone_changes(conn)
           # Sync any changes since connection last established.
-          if ActiveRecord.default_timezone == :local
+          if default_timezone == :local
             conn.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
           else
             conn.query_flags &= ~::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
