@@ -187,7 +187,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     rescue ActiveRecord::StatementInvalid => ex
       assert_instance_of Trilogy::BaseError, ex.cause
     else
-      flunk "Expected Trilogy::Error to be raised"
+      flunk "Expected Trilogy::BaseError to be raised"
     end
 
     assert_nil adapter.send(:connection)
