@@ -8,6 +8,4 @@ else
   gem "activerecord", ENV["RAILS_VERSION"]
 end
 
-gem "trilogy", git: "https://github.com/github/trilogy", branch: "main", glob: "contrib/ruby/*.gemspec"
-
 gemspec
