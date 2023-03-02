@@ -18,7 +18,7 @@ Gem::Specification.new do |spec|
     "bug_tracker_uri" => "https://github.com/github/activerecord-trilogy-adapter/issues"
   }
 
-  spec.add_dependency "trilogy", ">= 2.1.1"
+  spec.add_dependency "trilogy", ">= 2.3.0"
   spec.add_dependency "activerecord", ">= 7.0"
   spec.add_development_dependency "minitest", "~> 5.11"
   spec.add_development_dependency "minitest-focus", "~> 1.1"
