@@ -164,17 +164,6 @@ module ActiveRecord
 
       alias_method :reset!, :reconnect!
 
-      def raw_execute(sql, name, async: false, allow_retry: false, uses_transaction: true)
-        mark_transaction_written_if_write(sql)
-
-        log(sql, name, async: async) do
-          with_trilogy_connection(allow_retry: allow_retry, uses_transaction: uses_transaction) do |conn|
-            sync_timezone_changes(conn)
-            conn.query(sql)
-          end
-        end
-      end
-
       def each_hash(result)
         return to_enum(:each_hash, result) unless block_given?
 
