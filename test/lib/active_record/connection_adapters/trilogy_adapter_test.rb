@@ -360,6 +360,64 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     end
   end
 
+  class Post < ActiveRecord::Base; end
+
+  test "bulk fixture inserts when multi statement is configured" do
+    ActiveRecord::Base.establish_connection(@configuration.merge(multi_statement: true))
+    conn = ActiveRecord::Base.connection
+
+    fixtures = {
+      "posts" => [
+        { "id" => 1, "title" => "Foo", "body" => "Something", "kind" => "something else", "created_at" => Time.now.utc, "updated_at" => Time.now.utc },
+        { "id" => 2, "title" => "Bar", "body" => "Something Else", "kind" => "something", "created_at" => Time.now.utc, "updated_at" => Time.now.utc },
+      ]
+    }
+
+    assert_nothing_raised do
+      conn.execute("SELECT 1; SELECT 2;")
+      conn.raw_connection.next_result while conn.raw_connection.more_results_exist?
+    end
+
+    assert_difference "Post.count", 2 do
+      conn.insert_fixtures_set(fixtures)
+    end
+
+    assert_nothing_raised do
+      conn.execute("SELECT 1; SELECT 2;")
+      conn.raw_connection.next_result while conn.raw_connection.more_results_exist?
+    end
+  ensure
+    Post.delete_all
+  end
+
+  test "bulk fixture inserts when multi_statement is disabled by default" do
+    ActiveRecord::Base.establish_connection(@configuration.merge(multi_statement: false))
+    conn = ActiveRecord::Base.connection
+
+    fixtures = {
+      "posts" => [
+        { "id" => 1, "title" => "Foo", "body" => "Something", "kind" => "something else", "created_at" => Time.now.utc, "updated_at" => Time.now.utc },
+        { "id" => 2, "title" => "Bar", "body" => "Something Else", "kind" => "something", "created_at" => Time.now.utc, "updated_at" => Time.now.utc },
+      ]
+    }
+
+    assert_raises(ActiveRecord::StatementInvalid) do
+      conn.execute("SELECT 1; SELECT 2;")
+      conn.raw_connection.next_result while conn.raw_connection.more_results_exist?
+    end
+
+    assert_difference "Post.count", 2 do
+      conn.insert_fixtures_set(fixtures)
+    end
+
+    assert_raises(ActiveRecord::StatementInvalid) do
+      conn.execute("SELECT 1; SELECT 2;")
+      conn.raw_connection.next_result while conn.raw_connection.more_results_exist?
+    end
+  ensure
+    Post.delete_all
+  end
+
   test "query flags for timezone can be set to local and reset to utc" do
     if ActiveRecord.respond_to?(:default_timezone)
       old_timezone, ActiveRecord.default_timezone = ActiveRecord.default_timezone, :local
