@@ -2,12 +2,12 @@
 
 source "https://rubygems.org"
 
-if !ENV["RAILS_VERSION"] || ENV["RAILS_VERSION"] == "main"
-  gem "activerecord", git: "https://github.com/rails/rails", branch: "main"
+if !ENV["RAILS_VERSION"]
+  gem "activerecord"
 else
   gem "activerecord", ENV["RAILS_VERSION"]
 end
 
-gem "trilogy", git: "https://github.com/github/trilogy", branch: "main", glob: "contrib/ruby/*.gemspec"
+gem "trilogy"
 
 gemspec

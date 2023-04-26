@@ -628,6 +628,8 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   test "#execute fails with deadlock error" do
+    return skip if ::ActiveRecord.version < ::Gem::Version.new("7.1.a")
+
     adapter = trilogy_adapter
 
     new_connection = Trilogy.new(@configuration)

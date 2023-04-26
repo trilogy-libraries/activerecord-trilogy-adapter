@@ -7,7 +7,6 @@ jobs:
     strategy:
       matrix:
         rails_version:
-        - main
         - "~>7.0.0"
         ruby_version:
         - '3.0'
