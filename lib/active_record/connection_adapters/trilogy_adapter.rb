@@ -40,6 +40,15 @@ module ActiveRecord
 
         alias exec_without_stmt exec_query
 
+        def internal_exec_query(sql, name = "SQL", binds = [], prepare: false, async: false)
+          sql = transform_query(sql)
+          check_if_write_query(sql)
+          mark_transaction_written_if_write(sql)
+
+          result = raw_execute(sql, name, async: async)
+          ActiveRecord::Result.new(result.fields, result.to_a)
+        end
+
         def exec_insert(sql, name, binds, pk = nil, sequence_name = nil)
           execute(to_sql(sql, binds), name)
         end
@@ -56,6 +65,17 @@ module ActiveRecord
         end
 
         private
+          def raw_execute(sql, name, async: false, allow_retry: false, materialize_transactions: true)
+            log(sql, name, async: async) do
+              with_raw_connection(allow_retry: allow_retry, materialize_transactions: materialize_transactions) do |conn|
+                sync_timezone_changes(conn)
+                result = conn.query(sql)
+                handle_warnings(sql)
+                result
+              end
+            end
+          end
+
           def last_inserted_id(result)
             result.last_insert_id
           end
