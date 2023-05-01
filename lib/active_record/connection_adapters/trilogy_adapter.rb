@@ -34,7 +34,7 @@ module ActiveRecord
         end
 
         def exec_query(sql, name = "SQL", binds = [], prepare: false, async: false)
-          result = execute(sql, name, async: async)
+          result = execute(sql, name)
           ActiveRecord::Result.new(result.fields, result.to_a)
         end
 
