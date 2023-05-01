@@ -135,7 +135,7 @@ module ActiveRecord
       end
 
       def quote_string(string)
-        with_raw_connection(allow_retry: true, uses_transaction: false) do |conn|
+        with_raw_connection(allow_retry: true, materialize_transactions: false) do |conn|
           conn.escape(string)
         end
       end
@@ -269,7 +269,7 @@ module ActiveRecord
         end
 
         def get_full_version
-          with_raw_connection(allow_retry: true, uses_transaction: false) do |conn|
+          with_raw_connection(allow_retry: true, materialize_transactions: false) do |conn|
             conn.server_info[:version]
           end
         end
