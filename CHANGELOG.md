@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Support Rails 7.0
+- Removed support for Rails 7.1
 
 ## 2.2.0
 
