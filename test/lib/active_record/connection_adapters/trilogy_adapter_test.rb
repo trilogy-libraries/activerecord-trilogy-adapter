@@ -40,7 +40,6 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   test ".new_client on access denied error" do
-    skip("Test fails intermittently with TRILOGY_PROTOCOL_VIOLATION. See https://github.com/github/trilogy/pull/42")
     configuration = @configuration.merge(username: "unknown")
     assert_raises ActiveRecord::DatabaseConnectionError do
       @adapter.class.new_client(configuration)
@@ -137,7 +136,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   test "#quote_string works when the connection is known to be closed" do
     adapter = trilogy_adapter
     adapter.connect!
-    adapter.instance_variable_get(:@raw_connection).close
+    adapter.instance_variable_get(:@connection).close
 
     assert_equal "\\\"test\\\"", adapter.quote_string(%("test"))
   end
@@ -501,39 +500,6 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     end
   end
 
-  test "#execute answers results for valid query after losing connection unexpectedly" do
-    return skip if ::ActiveRecord.version < ::Gem::Version.new("7.1.a")
-
-    connection = Trilogy.new(@configuration.merge(read_timeout: 1))
-
-    adapter = trilogy_adapter_with_connection(connection)
-    assert adapter.active?
-
-    # Make connection lost for future queries by exceeding the read timeout
-    assert_raises(Trilogy::TimeoutError) do
-      connection.query "SELECT sleep(2);"
-    end
-    assert_not adapter.active?
-
-    # The adapter believes the connection is verified, so it will run the
-    # following query immediately. It will fail, and as the query's not
-    # retryable, the adapter will raise an error.
-
-    # The next query fails because the connection is lost
-    assert_raises(TrilogyAdapter::Errors::ClosedConnection) do
-      adapter.execute "SELECT COUNT(*) FROM posts;"
-    end
-    assert_not adapter.active?
-
-    # The adapter now knows the connection is lost, so it will re-verify (and
-    # ultimately reconnect) before running another query.
-
-    # This query triggers a reconnect
-    result = adapter.execute "SELECT COUNT(*) FROM posts;"
-    assert_equal [[0]], result.rows
-    assert adapter.active?
-  end
-
   test "#execute answers results for valid query after losing connection" do
     connection = Trilogy.new(@configuration.merge(read_timeout: 1))
 
@@ -556,33 +522,6 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     assert adapter.active?
   end
 
-  test "#execute fails if the connection is closed" do
-    return skip if ::ActiveRecord.version < ::Gem::Version.new("7.1.a")
-
-    connection = Trilogy.new(@configuration.merge(read_timeout: 1))
-
-    adapter = trilogy_adapter_with_connection(connection)
-    adapter.pool = @pool
-
-    assert_raises TrilogyAdapter::Errors::ClosedConnection do
-      adapter.transaction do
-        # Make connection lost for future queries by exceeding the read timeout
-        assert_raises(ActiveRecord::StatementInvalid) do
-          adapter.execute "SELECT sleep(2);"
-        end
-        assert_not adapter.active?
-
-        adapter.execute "SELECT COUNT(*) FROM posts;"
-      end
-    end
-
-    assert_not adapter.active?
-
-    # This query triggers a reconnect
-    result = adapter.execute "SELECT COUNT(*) FROM posts;"
-    assert_equal [[0]], result.rows
-  end
-
   test "can reconnect after failing to rollback" do
     connection = Trilogy.new(@configuration.merge(read_timeout: 1))
 
@@ -602,57 +541,6 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
 
     result = adapter.execute("SELECT 1")
     assert_equal [[1]], result.rows
-  end
-
-  test "can reconnect after failing to commit" do
-    return skip if ::ActiveRecord.version < ::Gem::Version.new("7.1.a")
-
-    connection = Trilogy.new(@configuration.merge(read_timeout: 1))
-
-    adapter = trilogy_adapter_with_connection(connection)
-    adapter.pool = @pool
-
-    assert_raises TrilogyAdapter::Errors::ClosedConnection do
-      adapter.transaction do
-        adapter.execute("SELECT 1")
-
-        # Cause the client to disconnect without the adapter's awareness
-        assert_raises Trilogy::TimeoutError do
-          adapter.send(:connection).query("SELECT sleep(2)")
-        end
-      end
-    end
-
-    result = adapter.execute("SELECT 1")
-    assert_equal [[1]], result.rows
-  end
-
-  test "#execute fails with deadlock error" do
-    return skip if ::ActiveRecord.version < ::Gem::Version.new("7.1.a")
-
-    adapter = trilogy_adapter
-
-    new_connection = Trilogy.new(@configuration)
-
-    deadlocking_adapter = trilogy_adapter_with_connection(new_connection)
-
-    # Add seed data
-    adapter.insert("INSERT INTO posts (title, kind, body, created_at, updated_at) VALUES('Setup', 'Example', 'Content', NOW(), NOW())")
-
-    adapter.transaction do
-      adapter.execute(
-        "UPDATE posts SET title = 'Connection 1' WHERE title != 'Connection 1';"
-      )
-
-      # Decrease the lock wait timeout in this session
-      deadlocking_adapter.execute("SET innodb_lock_wait_timeout = 1")
-
-      assert_raises(ActiveRecord::LockWaitTimeout) do
-        deadlocking_adapter.execute(
-          "UPDATE posts SET title = 'Connection 2' WHERE title != 'Connection 2';"
-        )
-      end
-    end
   end
 
   test "#execute fails with unknown error" do
@@ -1000,9 +888,6 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   def trilogy_adapter(**config_overrides)
-    arguments = [@configuration.merge(config_overrides)]
-    # For AR 7.0 turn  .new(config)  into  .new(nil, nil, nil, config)
-    3.times { arguments.unshift nil } if ::ActiveRecord.version < ::Gem::Version.new("7.1.a")
-    ActiveRecord::ConnectionAdapters::TrilogyAdapter.new(*arguments)
+    ActiveRecord::ConnectionAdapters::TrilogyAdapter.new(nil, nil, nil, @configuration.merge(config_overrides))
   end
 end

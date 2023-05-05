@@ -4,9 +4,6 @@ module TrilogyAdapter
   module BackwardsCompatibility
     def initialize(connection, logger, connection_options, config)
       super
-      if @connection
-        @raw_connection = @connection
-      end
       # Ensure that we're treating prepared_statements in the same way that Rails 7.1 does
       @prepared_statements = self.class.type_cast_config_to_boolean(
         @config.fetch(:prepared_statements) { default_prepared_statements }
@@ -29,10 +26,9 @@ module TrilogyAdapter
 
     def with_trilogy_connection(uses_transaction: true, **_kwargs)
       @lock.synchronize do
-        @raw_connection = @connection || nil unless instance_variable_defined?(:@raw_connection)
         verify!
         materialize_transactions if uses_transaction
-        yield @raw_connection
+        yield connection
       end
     end
 

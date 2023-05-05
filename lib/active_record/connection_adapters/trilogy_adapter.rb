@@ -162,12 +162,7 @@ module ActiveRecord
         self.connection = nil
       end
 
-      # ActiveRecord 7.0 support
-      if ActiveRecord.version < ::Gem::Version.new('7.1.a')
-        include ::TrilogyAdapter::BackwardsCompatibility
-      else # ActiveRecord >= 7.1 support
-        alias_method :with_trilogy_connection, :with_raw_connection
-      end
+      include ::TrilogyAdapter::BackwardsCompatibility
 
       alias_method :reset!, :reconnect!
 
@@ -193,14 +188,7 @@ module ActiveRecord
       end
 
       private
-        def connection
-          @raw_connection
-        end
-
-        def connection=(conn)
-          @connection = conn if ActiveRecord.version < ::Gem::Version.new('7.1.a')
-          @raw_connection = conn
-        end
+        attr_accessor :connection
 
         def connect
           self.connection = self.class.new_client(@config)

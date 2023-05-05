@@ -2,50 +2,44 @@
 
 module TrilogyAdapter
   module Errors
-    connection_failed_base = if ::ActiveRecord.version < ::Gem::Version.new("7.1.a")
-                               ::ActiveRecord::QueryAborted
-                             else
-                               ::ActiveRecord::ConnectionFailed
-                             end
-
     # ServerShutdown will be raised when the database server was shutdown.
-    class ServerShutdown < connection_failed_base
+    class ServerShutdown < ::ActiveRecord::QueryAborted
     end
 
     # ServerLost will be raised when the database connection was lost.
-    class ServerLost < connection_failed_base
+    class ServerLost < ::ActiveRecord::QueryAborted
     end
 
     # ServerGone will be raised when the database connection is gone.
-    class ServerGone < connection_failed_base
+    class ServerGone < ::ActiveRecord::QueryAborted
     end
 
     # BrokenPipe will be raised when a system process connection fails.
-    class BrokenPipe < connection_failed_base
+    class BrokenPipe < ::ActiveRecord::QueryAborted
     end
 
     # SocketError will be raised when Ruby encounters a network error.
-    class SocketError < connection_failed_base
+    class SocketError < ::ActiveRecord::QueryAborted
     end
 
     # ConnectionResetByPeer will be raised when a network connection is closed
     # outside the sytstem process.
-    class ConnectionResetByPeer < connection_failed_base
+    class ConnectionResetByPeer < ::ActiveRecord::QueryAborted
     end
 
     # ClosedConnection will be raised when the Trilogy encounters a closed
     # connection.
-    class ClosedConnection < connection_failed_base
+    class ClosedConnection < ::ActiveRecord::QueryAborted
     end
 
     # InvalidSequenceId will be raised when Trilogy ecounters an invalid sequence
     # id.
-    class InvalidSequenceId < connection_failed_base
+    class InvalidSequenceId < ::ActiveRecord::QueryAborted
     end
 
     # UnexpectedPacket will be raised when Trilogy ecounters an unexpected
     # response packet.
-    class UnexpectedPacket < connection_failed_base
+    class UnexpectedPacket < ::ActiveRecord::QueryAborted
     end
   end
 end
