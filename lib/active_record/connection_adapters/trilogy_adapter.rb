@@ -6,8 +6,6 @@ require "active_record/connection_adapters/abstract_mysql_adapter"
 require "active_record/tasks/trilogy_database_tasks"
 require "trilogy_adapter/lost_connection_exception_translator"
 
-require "trilogy_adapter/backwards_compatibility"
-
 module ActiveRecord
   module ConnectionAdapters
     class TrilogyAdapter < ::ActiveRecord::ConnectionAdapters::AbstractMysqlAdapter
@@ -112,6 +110,14 @@ module ActiveRecord
         end
       end
 
+      def initialize(connection, logger, connection_options, config)
+        super
+        # Ensure that we're treating prepared_statements in the same way that Rails 7.1 does
+        @prepared_statements = self.class.type_cast_config_to_boolean(
+          @config.fetch(:prepared_statements) { default_prepared_statements }
+        )
+      end
+
       def supports_json?
         !mariadb? && database_version >= "5.7.8"
       end
@@ -142,6 +148,45 @@ module ActiveRecord
         end
       end
 
+      def connect!
+        verify!
+        self
+      end
+
+      def reconnect!
+        @lock.synchronize do
+          disconnect!
+          connect
+        rescue StandardError => original_exception
+          raise translate_exception_class(original_exception, nil, nil)
+        end
+      end
+
+      def with_trilogy_connection(uses_transaction: true, **_kwargs)
+        @lock.synchronize do
+          verify!
+          materialize_transactions if uses_transaction
+          yield connection
+        end
+      end
+
+      def raw_execute(sql, name, async: false, allow_retry: false, uses_transaction: true)
+        mark_transaction_written_if_write(sql)
+
+        log(sql, name, async: async) do
+          with_trilogy_connection(allow_retry: allow_retry, uses_transaction: uses_transaction) do |conn|
+            sync_timezone_changes(conn)
+            conn.query(sql)
+          end
+        end
+      end
+
+      def execute(sql, name = nil, **kwargs)
+        sql = transform_query(sql)
+        check_if_write_query(sql)
+        super
+      end
+
       def active?
         return false if connection&.closed?
 
@@ -149,6 +194,8 @@ module ActiveRecord
       rescue ::Trilogy::Error
         false
       end
+
+      alias reset! reconnect!
 
       def disconnect!
         super
@@ -161,10 +208,6 @@ module ActiveRecord
       def discard!
         self.connection = nil
       end
-
-      include ::TrilogyAdapter::BackwardsCompatibility
-
-      alias_method :reset!, :reconnect!
 
       def each_hash(result)
         return to_enum(:each_hash, result) unless block_given?
@@ -266,6 +309,10 @@ module ActiveRecord
 
         def full_version
           schema_cache.database_version.full_version_string
+        end
+
+        def default_timezone
+          ActiveRecord.default_timezone
         end
 
         def get_full_version
