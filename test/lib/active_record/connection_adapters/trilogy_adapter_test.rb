@@ -312,11 +312,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   test "default query flags set timezone to UTC" do
-    if ActiveRecord.respond_to?(:default_timezone)
-      assert_equal :utc, ActiveRecord.default_timezone
-    else
-      assert_equal :utc, ActiveRecord::Base.default_timezone
-    end
+    assert_equal :utc, ActiveRecord.default_timezone
     ruby_time = Time.utc(2019, 5, 31, 12, 52)
     time = '2019-05-31 12:52:00'
 
@@ -332,13 +328,8 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   test "query flags for timezone can be set to local" do
-    if ActiveRecord.respond_to?(:default_timezone)
-      old_timezone, ActiveRecord.default_timezone = ActiveRecord.default_timezone, :local
-      assert_equal :local, ActiveRecord.default_timezone
-    else
-      old_timezone, ActiveRecord::Base.default_timezone = ActiveRecord::Base.default_timezone, :local
-      assert_equal :local, ActiveRecord::Base.default_timezone
-    end
+    old_timezone, ActiveRecord.default_timezone = ActiveRecord.default_timezone, :local
+    assert_equal :local, ActiveRecord.default_timezone
     ruby_time = Time.local(2019, 5, 31, 12, 52)
     time = '2019-05-31 12:52:00'
 
@@ -352,11 +343,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
 
     assert_equal 5, @adapter.send(:connection).query_flags
   ensure
-    if ActiveRecord.respond_to?(:default_timezone)
-      ActiveRecord.default_timezone = old_timezone
-    else
-      ActiveRecord::Base.default_timezone = old_timezone
-    end
+    ActiveRecord.default_timezone = old_timezone
   end
 
   class Post < ActiveRecord::Base; end
@@ -418,13 +405,8 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   test "query flags for timezone can be set to local and reset to utc" do
-    if ActiveRecord.respond_to?(:default_timezone)
-      old_timezone, ActiveRecord.default_timezone = ActiveRecord.default_timezone, :local
-      assert_equal :local, ActiveRecord.default_timezone
-    else
-      old_timezone, ActiveRecord::Base.default_timezone = ActiveRecord::Base.default_timezone, :local
-      assert_equal :local, ActiveRecord::Base.default_timezone
-    end
+    old_timezone, ActiveRecord.default_timezone = ActiveRecord.default_timezone, :local
+    assert_equal :local, ActiveRecord.default_timezone
     ruby_time = Time.local(2019, 5, 31, 12, 52)
     time = '2019-05-31 12:52:00'
 
@@ -438,11 +420,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
 
     assert_equal 5, @adapter.send(:connection).query_flags
 
-    if ActiveRecord.respond_to?(:default_timezone)
-      ActiveRecord.default_timezone = :utc
-    else
-      ActiveRecord::Base.default_timezone = :utc
-    end
+    ActiveRecord.default_timezone = :utc
 
     ruby_utc_time = Time.utc(2019, 5, 31, 12, 52)
     utc_result = @adapter.execute("select * from posts limit 1;")
@@ -454,11 +432,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
 
     assert_equal 1, @adapter.send(:connection).query_flags
   ensure
-    if ActiveRecord.respond_to?(:default_timezone)
-      ActiveRecord.default_timezone = old_timezone
-    else
-      ActiveRecord::Base.default_timezone = old_timezone
-    end
+    ActiveRecord.default_timezone = old_timezone
   end
 
   test "#execute answers results for valid query" do

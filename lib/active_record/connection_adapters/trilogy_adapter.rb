@@ -245,7 +245,7 @@ module ActiveRecord
 
         def sync_timezone_changes(conn)
           # Sync any changes since connection last established.
-          if default_timezone == :local
+          if ActiveRecord.default_timezone == :local
             conn.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
           else
             conn.query_flags &= ~::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
@@ -309,10 +309,6 @@ module ActiveRecord
 
         def full_version
           schema_cache.database_version.full_version_string
-        end
-
-        def default_timezone
-          ActiveRecord.default_timezone
         end
 
         def get_full_version
