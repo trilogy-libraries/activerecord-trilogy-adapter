@@ -110,6 +110,14 @@ module ActiveRecord
         end
       end
 
+      def initialize(connection, logger, connection_options, config)
+        super
+        # Ensure that we're treating prepared_statements in the same way that Rails 7.1 does
+        @prepared_statements = self.class.type_cast_config_to_boolean(
+          @config.fetch(:prepared_statements) { default_prepared_statements }
+        )
+      end
+
       def supports_json?
         !mariadb? && database_version >= "5.7.8"
       end
@@ -135,12 +143,53 @@ module ActiveRecord
       end
 
       def quote_string(string)
-        with_raw_connection(allow_retry: true, uses_transaction: false) do |conn|
+        with_trilogy_connection(allow_retry: true, uses_transaction: false) do |conn|
           conn.escape(string)
         end
       end
 
+      def connect!
+        verify!
+        self
+      end
+
+      def reconnect!
+        @lock.synchronize do
+          disconnect!
+          connect
+        rescue StandardError => original_exception
+          raise translate_exception_class(original_exception, nil, nil)
+        end
+      end
+
+      def with_trilogy_connection(uses_transaction: true, **_kwargs)
+        @lock.synchronize do
+          verify!
+          materialize_transactions if uses_transaction
+          yield connection
+        end
+      end
+
+      def raw_execute(sql, name, async: false, allow_retry: false, uses_transaction: true)
+        mark_transaction_written_if_write(sql)
+
+        log(sql, name, async: async) do
+          with_trilogy_connection(allow_retry: allow_retry, uses_transaction: uses_transaction) do |conn|
+            sync_timezone_changes(conn)
+            conn.query(sql)
+          end
+        end
+      end
+
+      def execute(sql, name = nil, **kwargs)
+        sql = transform_query(sql)
+        check_if_write_query(sql)
+        super
+      end
+
       def active?
+        return false if connection&.closed?
+
         connection&.ping || false
       rescue ::Trilogy::Error
         false
@@ -182,13 +231,7 @@ module ActiveRecord
       end
 
       private
-        def connection
-          @raw_connection
-        end
-
-        def connection=(conn)
-          @raw_connection = conn
-        end
+        attr_accessor :connection
 
         def connect
           self.connection = self.class.new_client(@config)
@@ -202,7 +245,7 @@ module ActiveRecord
 
         def sync_timezone_changes(conn)
           # Sync any changes since connection last established.
-          if default_timezone == :local
+          if ActiveRecord.default_timezone == :local
             conn.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
           else
             conn.query_flags &= ~::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
@@ -212,7 +255,7 @@ module ActiveRecord
         def execute_batch(statements, name = nil)
           statements = statements.map { |sql| transform_query(sql) }
           combine_multi_statements(statements).each do |statement|
-            with_raw_connection do |conn|
+            with_trilogy_connection do |conn|
               raw_execute(statement, name)
               conn.next_result while conn.more_results_exist?
             end
@@ -228,7 +271,7 @@ module ActiveRecord
             return yield
           end
 
-          with_raw_connection do |conn|
+          with_trilogy_connection do |conn|
             conn.set_server_option(Trilogy::SET_SERVER_MULTI_STATEMENTS_ON)
 
             yield
@@ -269,7 +312,7 @@ module ActiveRecord
         end
 
         def get_full_version
-          with_raw_connection(allow_retry: true, uses_transaction: false) do |conn|
+          with_trilogy_connection(allow_retry: true, uses_transaction: false) do |conn|
             conn.server_info[:version]
           end
         end
