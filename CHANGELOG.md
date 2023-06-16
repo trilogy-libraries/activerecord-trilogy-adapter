@@ -5,9 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-### Added
+## 3.0.0
 
-- Removed support for Rails 7.1
+### Changed
+
+ - Added support for Rails 7.0 and removed support for prerelease Rails 7.1 because this adapter was merged into Rails. #26
 
 ## 2.2.0
 

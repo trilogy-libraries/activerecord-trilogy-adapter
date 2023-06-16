@@ -1,7 +1,7 @@
 ## Contributing
 
-[fork]: https://github.com/github/activerecord-trilogy-adapter/fork
-[pr]: https://github.com/github/activerecord-trilogy-adapter/compare
+[fork]: https://github.com/trilogy-libraries/activerecord-trilogy-adapter/fork
+[pr]: https://github.com/trilogy-libraries/activerecord-trilogy-adapter/compare
 [style]: https://github.com/styleguide/ruby
 [code-of-conduct]: CODE_OF_CONDUCT.md
 

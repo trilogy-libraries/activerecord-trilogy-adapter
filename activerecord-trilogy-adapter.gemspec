@@ -8,14 +8,14 @@ Gem::Specification.new do |spec|
   spec.platform = Gem::Platform::RUBY
   spec.authors = ["GitHub Engineering"]
   spec.email = ["opensource+trilogy@github.com"]
-  spec.homepage = "https://github.com/github/activerecord-trilogy-adapter"
-  spec.summary = "Active Record adapter for https://github.com/github/trilogy."
+  spec.homepage = "https://github.com/trilogy-libraries/activerecord-trilogy-adapter"
+  spec.summary = "Active Record adapter for https://github.com/trilogy-libraries/trilogy."
   spec.license = "MIT"
 
   spec.metadata = {
-    "source_code_uri" => "https://github.com/github/activerecord-trilogy-adapter",
-    "changelog_uri" => "https://github.com/github/activerecord-trilogy-adapter/blob/master/CHANGELOG.md",
-    "bug_tracker_uri" => "https://github.com/github/activerecord-trilogy-adapter/issues"
+    "source_code_uri" => "https://github.com/trilogy-libraries/activerecord-trilogy-adapter",
+    "changelog_uri" => "https://github.com/trilogy-libraries/activerecord-trilogy-adapter/blob/master/CHANGELOG.md",
+    "bug_tracker_uri" => "https://github.com/trilogy-libraries/activerecord-trilogy-adapter/issues"
   }
 
   spec.add_dependency "trilogy", ">= 2.4.0"
