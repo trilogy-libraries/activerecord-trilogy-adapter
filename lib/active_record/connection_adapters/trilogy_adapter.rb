@@ -47,6 +47,16 @@ module ActiveRecord
     end
   end
 
+  if ActiveRecord.version < ::Gem::Version.new('6.1.a') # ActiveRecord <= 6.0 support
+    require "active_record/database_configurations"
+    DatabaseConfigurations.class_exec do
+      def resolve(config) # :nodoc:
+        @resolver ||= ::ActiveRecord::ConnectionAdapters::ConnectionSpecification::Resolver.new(::ActiveRecord::Base.configurations)
+        @resolver.resolve(config)
+      end
+    end
+  end
+
   module ConnectionAdapters
     class TrilogyAdapter < ::ActiveRecord::ConnectionAdapters::AbstractMysqlAdapter
       module DatabaseStatements
@@ -397,6 +407,49 @@ module ActiveRecord
         def default_prepared_statements
           false
         end
+
+        if ActiveRecord.version < ::Gem::Version.new('6.1.a') # For ActiveRecord <= 6.0
+          def prepared_statements?
+            @prepared_statements && !prepared_statements_disabled_cache.include?(object_id)
+          end
+        end
+    end
+
+    if ActiveRecord.version < ::Gem::Version.new('6.1.a') # For ActiveRecord <= 6.0
+      class PoolConfig < ConnectionSpecification
+        def initialize(connection_class, db_config, *args)
+          super("primary", db_config, "#{db_config[:adapter]}_connection")
+        end
+      end
+
+      SchemaCache.class_exec do
+        def self.load_from(filename)
+          return unless File.file?(filename)
+
+          read(filename) do |file|
+            if filename.include?(".dump")
+              Marshal.load(file)
+            else
+              if YAML.respond_to?(:unsafe_load)
+                YAML.unsafe_load(file)
+              else
+                YAML.load(file)
+              end
+            end
+          end
+        end
+
+        def self.read(filename, &block)
+          if File.extname(filename) == ".gz"
+            Zlib::GzipReader.open(filename) { |gz|
+              yield gz.read
+            }
+          else
+            yield File.read(filename)
+          end
+        end
+        private_class_method :read
+      end
     end
   end
 end

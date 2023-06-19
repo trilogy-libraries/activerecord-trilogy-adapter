@@ -6,11 +6,12 @@ This gem offers Trilogy support for versions of ActiveRecord prior to 7.1. Curre
 
 - Rails v7.0.x
 - Rails v6.1.x
+- Rails v6.0.x
 
 ## Requirements
 
 - [Ruby](https://www.ruby-lang.org) 2.7 or higher
-- [Active Record](https://github.com/rails/rails) 6.1.x or higher
+- [Active Record](https://github.com/rails/rails) 6.0.x or higher
 - [Trilogy](https://github.com/trilogy-libraries/trilogy) 2.4.0 or higher
 
 ## Setup
