@@ -19,7 +19,12 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     @adapter.execute("TRUNCATE posts")
 
     db_config = ActiveRecord::DatabaseConfigurations.new({}).resolve(@configuration)
-    pool_config = ActiveRecord::ConnectionAdapters::PoolConfig.new(ActiveRecord::Base, db_config, :writing, :default)
+    pool_config_params = [ActiveRecord::Base, db_config]
+    # AR 7.0 expects two additional parameters
+    if ActiveRecord::ConnectionAdapters::PoolConfig.instance_method(:initialize).parameters.length == 4
+      pool_config_params += [:writing, :default]
+    end
+    pool_config = ActiveRecord::ConnectionAdapters::PoolConfig.new(*pool_config_params)
     @pool = ActiveRecord::ConnectionAdapters::ConnectionPool.new(pool_config)
   end
 
@@ -312,7 +317,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   test "default query flags set timezone to UTC" do
-    assert_equal :utc, ActiveRecord.default_timezone
+    assert_equal :utc, default_timezone
     ruby_time = Time.utc(2019, 5, 31, 12, 52)
     time = '2019-05-31 12:52:00'
 
@@ -328,8 +333,9 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   test "query flags for timezone can be set to local" do
-    old_timezone, ActiveRecord.default_timezone = ActiveRecord.default_timezone, :local
-    assert_equal :local, ActiveRecord.default_timezone
+    old_timezone = default_timezone
+    set_default_timezone(:local)
+    assert_equal :local, default_timezone
     ruby_time = Time.local(2019, 5, 31, 12, 52)
     time = '2019-05-31 12:52:00'
 
@@ -343,7 +349,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
 
     assert_equal 5, @adapter.send(:connection).query_flags
   ensure
-    ActiveRecord.default_timezone = old_timezone
+    set_default_timezone(old_timezone)
   end
 
   class Post < ActiveRecord::Base; end
@@ -405,8 +411,9 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   test "query flags for timezone can be set to local and reset to utc" do
-    old_timezone, ActiveRecord.default_timezone = ActiveRecord.default_timezone, :local
-    assert_equal :local, ActiveRecord.default_timezone
+    old_timezone = default_timezone
+    set_default_timezone(:local)
+    assert_equal :local, default_timezone
     ruby_time = Time.local(2019, 5, 31, 12, 52)
     time = '2019-05-31 12:52:00'
 
@@ -420,7 +427,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
 
     assert_equal 5, @adapter.send(:connection).query_flags
 
-    ActiveRecord.default_timezone = :utc
+    set_default_timezone(:utc)
 
     ruby_utc_time = Time.utc(2019, 5, 31, 12, 52)
     utc_result = @adapter.execute("select * from posts limit 1;")
@@ -432,7 +439,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
 
     assert_equal 1, @adapter.send(:connection).query_flags
   ensure
-    ActiveRecord.default_timezone = old_timezone
+    set_default_timezone(old_timezone)
   end
 
   test "#execute answers results for valid query" do
@@ -863,5 +870,17 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
 
   def trilogy_adapter(**config_overrides)
     ActiveRecord::ConnectionAdapters::TrilogyAdapter.new(nil, nil, nil, @configuration.merge(config_overrides))
+  end
+
+  def default_timezone
+    ActiveRecord.version < ::Gem::Version.new('7.0.a') ? ActiveRecord::Base.default_timezone : ActiveRecord.default_timezone
+  end
+
+  def set_default_timezone(value)
+    if ActiveRecord.version < ::Gem::Version.new('7.0.a') # For ActiveRecord 6.1
+      ActiveRecord::Base.default_timezone = value
+    else # For ActiveRecord < 7.0
+      ActiveRecord.default_timezone = value
+    end
   end
 end
