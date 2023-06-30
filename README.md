@@ -1,29 +1,34 @@
 # Trilogy Adapter
 
-Active Record database adapter for [Trilogy](https://github.com/trilogy-libraries/trilogy)
+Ruby on Rails Active Record database adapter for [Trilogy](https://github.com/trilogy-libraries/trilogy), a client library for MySQL-compatible database servers, designed for performance, flexibility, and ease of embedding.
 
-This gem offers Trilogy support for versions of ActiveRecord prior to 7.1. Currently supports:
+This gem offers Trilogy support for versions of Active Record prior to v7.1. Currently supports:
 
-- Rails v7.0.x
-- Rails v6.1.x
-- Rails v6.0.x
+- ⚠️ Rails v7.1+ includes Trilogy support by default making this gem unnecessary
+- ✅ Rails v7.0.x
+- ✅ Rails v6.1.x
+- ✅ Rails v6.0.x
 
 ## Requirements
 
-- [Ruby](https://www.ruby-lang.org) 2.7 or higher
-- [Active Record](https://github.com/rails/rails) 6.0.x or higher
-- [Trilogy](https://github.com/trilogy-libraries/trilogy) 2.4.0 or higher
+- [Ruby](https://www.ruby-lang.org) v2.7 or higher
+- [Active Record](https://github.com/rails/rails) v6.0.x or higher
+- [Trilogy](https://github.com/trilogy-libraries/trilogy) v2.4.0 or higher, which is included as a dependency of this gem.
 
 ## Setup
 
-* Add the following to your Gemfile:
+1. Add the following to your `Gemfile` and run `bundle install`:
 
-  ```rb
-  gem "activerecord-trilogy-adapter"
-  ```
+    ```rb
+    # Gemfile
+    gem "activerecord-trilogy-adapter"
+    ```
+2. Update your application's database configuration to use `trilogy` as the adapter:
 
-* Update your database configuration (e.g. `config/database.yml`) to use
-  `trilogy` as the adapter.
+   ```yaml
+   # config/database.yml
+   adapter: trilogy
+   ```
 
 ## Versioning
 
