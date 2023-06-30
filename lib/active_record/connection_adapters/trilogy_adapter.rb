@@ -7,6 +7,56 @@ require "active_record/tasks/trilogy_database_tasks"
 require "trilogy_adapter/lost_connection_exception_translator"
 
 module ActiveRecord
+  # ActiveRecord <= 6.1 support
+  if ActiveRecord.version < ::Gem::Version.new('7.0.a')
+    class DatabaseConnectionError < ConnectionNotEstablished
+      def initialize(message = nil)
+        super(message || "Database connection error")
+      end
+
+      class << self
+        def hostname_error(hostname)
+          DatabaseConnectionError.new(<<~MSG)
+            There is an issue connecting with your hostname: #{hostname}.\n
+            Please check your database configuration and ensure there is a valid connection to your database.
+          MSG
+        end
+
+        def username_error(username)
+          DatabaseConnectionError.new(<<~MSG)
+            There is an issue connecting to your database with your username/password, username: #{username}.\n
+            Please check your database configuration to ensure the username/password are valid.
+          MSG
+        end
+      end
+    end
+
+    NoDatabaseError.class_exec do
+      def self.db_error(db_name)
+        NoDatabaseError.new(<<~MSG)
+          We could not find your database: #{db_name}. Available database configurations can be found in config/database.yml file.
+
+          To resolve this error:
+
+          - Did you create the database for this app, or delete it? You may need to create your database.
+          - Has the database name changed? Check your database.yml config has the correct database name.
+
+          To create your database, run:\n\n        bin/rails db:create
+        MSG
+      end
+    end
+  end
+
+  if ActiveRecord.version < ::Gem::Version.new('6.1.a') # ActiveRecord <= 6.0 support
+    require "active_record/database_configurations"
+    DatabaseConfigurations.class_exec do
+      def resolve(config) # :nodoc:
+        @resolver ||= ::ActiveRecord::ConnectionAdapters::ConnectionSpecification::Resolver.new(::ActiveRecord::Base.configurations)
+        @resolver.resolve(config)
+      end
+    end
+  end
+
   module ConnectionAdapters
     class TrilogyAdapter < ::ActiveRecord::ConnectionAdapters::AbstractMysqlAdapter
       module DatabaseStatements
@@ -170,21 +220,41 @@ module ActiveRecord
         end
       end
 
-      def raw_execute(sql, name, async: false, allow_retry: false, uses_transaction: true)
-        mark_transaction_written_if_write(sql)
+      if ActiveRecord.version < ::Gem::Version.new('7.0.a') # ActiveRecord <= 6.1 support
+        def raw_execute(sql, name, uses_transaction: true, **_kwargs)
+          # Same as mark_transaction_written_if_write(sql)
+          transaction = current_transaction
+          if transaction.respond_to?(:written) && transaction.open?
+            transaction.written ||= write_query?(sql)
+          end
 
-        log(sql, name, async: async) do
-          with_trilogy_connection(allow_retry: allow_retry, uses_transaction: uses_transaction) do |conn|
-            sync_timezone_changes(conn)
-            conn.query(sql)
+          log(sql, name) do
+            with_trilogy_connection(uses_transaction: uses_transaction) do |conn|
+              sync_timezone_changes(conn)
+              conn.query(sql)
+            end
           end
         end
-      end
 
-      def execute(sql, name = nil, **kwargs)
-        sql = transform_query(sql)
-        check_if_write_query(sql)
-        super
+        def execute(sql, name = nil, **_kwargs)
+          raw_execute(sql, name, **_kwargs)
+        end
+      else # ActiveRecord 7.0 support
+        def raw_execute(sql, name, uses_transaction: true, async: false, allow_retry: false)
+          mark_transaction_written_if_write(sql)
+          log(sql, name, async: async) do
+            with_trilogy_connection(uses_transaction: uses_transaction, allow_retry: allow_retry) do |conn|
+              sync_timezone_changes(conn)
+              conn.query(sql)
+            end
+          end
+        end
+
+        def execute(sql, name = nil, **kwargs)
+          sql = transform_query(sql)
+          check_if_write_query(sql)
+          super
+        end
       end
 
       def active?
@@ -245,7 +315,7 @@ module ActiveRecord
 
         def sync_timezone_changes(conn)
           # Sync any changes since connection last established.
-          if ActiveRecord.default_timezone == :local
+          if default_timezone == :local
             conn.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
           else
             conn.query_flags &= ~::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
@@ -253,7 +323,7 @@ module ActiveRecord
         end
 
         def execute_batch(statements, name = nil)
-          statements = statements.map { |sql| transform_query(sql) }
+          statements = statements.map { |sql| transform_query(sql) } if respond_to?(:transform_query)
           combine_multi_statements(statements).each do |statement|
             with_trilogy_connection do |conn|
               raw_execute(statement, name)
@@ -317,6 +387,16 @@ module ActiveRecord
           end
         end
 
+        if ActiveRecord.version < ::Gem::Version.new('7.0.a') # For ActiveRecord <= 6.1
+          def default_timezone
+            ActiveRecord::Base.default_timezone
+          end
+        else # For ActiveRecord 7.0
+          def default_timezone
+            ActiveRecord.default_timezone
+          end
+        end
+
         def translate_exception(exception, message:, sql:, binds:)
           error_code = exception.error_code if exception.respond_to?(:error_code)
 
@@ -327,6 +407,49 @@ module ActiveRecord
         def default_prepared_statements
           false
         end
+
+        if ActiveRecord.version < ::Gem::Version.new('6.1.a') # For ActiveRecord <= 6.0
+          def prepared_statements?
+            @prepared_statements && !prepared_statements_disabled_cache.include?(object_id)
+          end
+        end
+    end
+
+    if ActiveRecord.version < ::Gem::Version.new('6.1.a') # For ActiveRecord <= 6.0
+      class PoolConfig < ConnectionSpecification
+        def initialize(connection_class, db_config, *args)
+          super("primary", db_config, "#{db_config[:adapter]}_connection")
+        end
+      end
+
+      SchemaCache.class_exec do
+        def self.load_from(filename)
+          return unless File.file?(filename)
+
+          read(filename) do |file|
+            if filename.include?(".dump")
+              Marshal.load(file)
+            else
+              if YAML.respond_to?(:unsafe_load)
+                YAML.unsafe_load(file)
+              else
+                YAML.load(file)
+              end
+            end
+          end
+        end
+
+        def self.read(filename, &block)
+          if File.extname(filename) == ".gz"
+            Zlib::GzipReader.open(filename) { |gz|
+              yield gz.read
+            }
+          else
+            yield File.read(filename)
+          end
+        end
+        private_class_method :read
+      end
     end
   end
 end
