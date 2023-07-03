@@ -4,6 +4,8 @@ if ActiveRecord.version < ::Gem::Version.new('6.1.a') # ActiveRecord <= 6.0 supp
   module ::ActiveRecord
     class QueryAborted < ::ActiveRecord::StatementInvalid
     end
+    class AdapterTimeout < ::ActiveRecord::QueryAborted
+    end
   end
 end
 

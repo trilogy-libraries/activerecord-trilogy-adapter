@@ -772,6 +772,17 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     assert_equal 123, @adapter.error_number(exception)
   end
 
+  test "read timeout raises ActiveRecord::AdapterTimeout" do
+    ActiveRecord::Base.establish_connection(@configuration.merge("read_timeout" => 1))
+
+    error = assert_raises(ActiveRecord::AdapterTimeout) do
+      ActiveRecord::Base.connection.execute("SELECT SLEEP(2)")
+    end
+    assert_kind_of ActiveRecord::QueryAborted, error
+
+    assert_equal Trilogy::TimeoutError, error.cause.class
+  end
+
   test "schema cache works without querying DB" do
     adapter = trilogy_adapter
     adapter.schema_cache = adapter.schema_cache.class.load_from(@schema_cache_fixture_path)
