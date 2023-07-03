@@ -276,7 +276,11 @@ module ActiveRecord
       end
 
       def discard!
-        self.connection = nil
+        super
+        unless connection.nil?
+          connection.discard!
+          self.connection = nil
+        end
       end
 
       def each_hash(result)
