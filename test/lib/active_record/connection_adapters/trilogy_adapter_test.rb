@@ -280,16 +280,16 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     assert_nil adapter.discard!
   end
 
-  test "#exec_query answers result with valid query" do
-    result = @adapter.exec_query "SELECT * FROM posts;"
+  test "#internal_exec_query answers result with valid query" do
+    result = @adapter.internal_exec_query "SELECT * FROM posts;"
 
     assert_equal %w[id author_id title body kind created_at updated_at], result.columns
     assert_equal [], result.rows
   end
 
-  test "#exec_query fails with invalid query" do
+  test "#internal_exec_query fails with invalid query" do
     assert_raises_with_message ActiveRecord::StatementInvalid, /'trilogy_test.bogus' doesn't exist/ do
-      @adapter.exec_query "SELECT * FROM bogus;"
+      @adapter.internal_exec_query "SELECT * FROM bogus;"
     end
   end
 
@@ -745,7 +745,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     @adapter.execute "INSERT INTO posts (title, kind, body, created_at, updated_at) VALUES ('test', 'example', 'content', NOW(), NOW());"
     result = @adapter.execute "SELECT * FROM posts;"
 
-    @adapter.each_hash(result) do |row|
+    @adapter.send(:each_hash, result) do |row|
       assert_equal "test", row[:title]
     end
   end
@@ -753,14 +753,14 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   test "#each_hash returns an enumarator of symbolized result rows when no block is given" do
     @adapter.execute "INSERT INTO posts (title, kind, body, created_at, updated_at) VALUES ('test', 'example', 'content', NOW(), NOW());"
     result = @adapter.execute "SELECT * FROM posts;"
-    rows_enum = @adapter.each_hash result
+    rows_enum = @adapter.send(:each_hash, result)
 
     assert_equal "test", rows_enum.next[:title]
   end
 
   test "#each_hash returns empty array when results is empty" do
     result = @adapter.execute "SELECT * FROM posts;"
-    rows = @adapter.each_hash result
+    rows = @adapter.send(:each_hash, result)
 
     assert_empty rows.to_a
   end
@@ -769,7 +769,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     exception = Minitest::Mock.new
     exception.expect :error_code, 123
 
-    assert_equal 123, @adapter.error_number(exception)
+    assert_equal 123, @adapter.send(:error_number, exception)
   end
 
   test "schema cache works without querying DB" do
