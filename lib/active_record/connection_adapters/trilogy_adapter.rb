@@ -207,8 +207,6 @@ module ActiveRecord
         @lock.synchronize do
           disconnect!
           connect
-        rescue StandardError => original_exception
-          raise translate_exception_class(original_exception, nil, nil)
         end
       end
 
