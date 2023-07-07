@@ -87,7 +87,6 @@ module ActiveRecord
           return mode if mode.is_a? Integer
 
           m = mode.to_s.upcase
-          # enable Mysql2 client compatibility
           m = "SSL_MODE_#{m}" unless m.start_with? "SSL_MODE_"
 
           SSL_MODES.fetch(m.to_sym, mode)
@@ -107,6 +106,19 @@ module ActiveRecord
             end
           end
         end
+
+        private
+          def initialize_type_map(m)
+            super if ActiveRecord.version >= ::Gem::Version.new('7.0.a')
+
+            m.register_type(%r(char)i) do |sql_type|
+              limit = extract_limit(sql_type)
+              Type.lookup(:string, adapter: :trilogy, limit: limit)
+            end
+
+            m.register_type %r(^enum)i, Type.lookup(:string, adapter: :trilogy)
+            m.register_type %r(^set)i,  Type.lookup(:string, adapter: :trilogy)
+          end
       end
 
       def initialize(connection, logger, connection_options, config)
@@ -116,6 +128,8 @@ module ActiveRecord
           @config.fetch(:prepared_statements) { default_prepared_statements }
         )
       end
+
+      TYPE_MAP = Type::TypeMap.new.tap { |m| initialize_type_map(m) }
 
       def supports_json?
         !mariadb? && database_version >= "5.7.8"
@@ -201,6 +215,10 @@ module ActiveRecord
       end
 
       private
+        def text_type?(type)
+          TYPE_MAP.lookup(type).is_a?(Type::String) || TYPE_MAP.lookup(type).is_a?(Type::Text)
+        end
+
         def each_hash(result)
           return to_enum(:each_hash, result) unless block_given?
 
@@ -328,6 +346,16 @@ module ActiveRecord
             @prepared_statements && !prepared_statements_disabled_cache.include?(object_id)
           end
         end
+
+        ActiveRecord::Type.register(:immutable_string, adapter: :trilogy) do |_, **args|
+          Type::ImmutableString.new(true: "1", false: "0", **args)
+        end
+
+        ActiveRecord::Type.register(:string, adapter: :trilogy) do |_, **args|
+          Type::String.new(true: "1", false: "0", **args)
+        end
+
+        ActiveRecord::Type.register(:unsigned_integer, Type::UnsignedInteger, adapter: :trilogy)
     end
 
     if ActiveRecord.version < ::Gem::Version.new('6.1.a') # For ActiveRecord <= 6.0
@@ -366,5 +394,7 @@ module ActiveRecord
         private_class_method :read
       end
     end
+
+    ActiveSupport.run_load_hooks(:active_record_trilogyadapter, TrilogyAdapter)
   end
 end
