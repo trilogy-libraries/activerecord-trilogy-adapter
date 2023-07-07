@@ -195,7 +195,11 @@ module ActiveRecord
       end
 
       def discard!
-        self.connection = nil
+        super
+        unless connection.nil?
+          connection.discard!
+          self.connection = nil
+        end
       end
 
       private
