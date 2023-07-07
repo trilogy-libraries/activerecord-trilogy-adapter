@@ -188,8 +188,8 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
       Trilogy.stub(:new, -> _ { raise Trilogy::BaseError.new }) do
         adapter.reconnect!
       end
-    rescue ActiveRecord::StatementInvalid => ex
-      assert_instance_of Trilogy::BaseError, ex.cause
+    rescue Trilogy::BaseError => ex
+      assert_instance_of Trilogy::BaseError, ex
     else
       flunk "Expected Trilogy::BaseError to be raised"
     end
