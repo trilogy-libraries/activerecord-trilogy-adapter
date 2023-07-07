@@ -5,11 +5,22 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## 3.1.0
+
+### Changed
+
+- Added support for Rails 6.0 and 6.1. #42
+- Backport Rails 7.1a refactors and tweaks. #44, #45, #46, #47, #48
+
+### Fixed
+
+- Remove translation of exception on reconnect to fix Rails test parallel tests. #49
+
 ## 3.0.0
 
 ### Changed
 
- - Added support for Rails 7.0 and removed support for prerelease Rails 7.1 because this adapter was merged into Rails. #26
+- Added support for Rails 7.0 and removed support for prerelease Rails 7.1 because this adapter was merged into Rails. #26
 
 ## 2.2.0
 
