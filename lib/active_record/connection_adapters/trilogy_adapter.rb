@@ -4,6 +4,7 @@ require "trilogy"
 require "active_record/connection_adapters/abstract_mysql_adapter"
 
 require "active_record/tasks/trilogy_database_tasks"
+require "active_record/connection_adapters/trilogy/database_statements"
 require "trilogy_adapter/lost_connection_exception_translator"
 
 module ActiveRecord
@@ -59,78 +60,26 @@ module ActiveRecord
 
   module ConnectionAdapters
     class TrilogyAdapter < ::ActiveRecord::ConnectionAdapters::AbstractMysqlAdapter
-      module DatabaseStatements
-        READ_QUERY = ActiveRecord::ConnectionAdapters::AbstractAdapter.build_read_query_regexp(
-          :desc, :describe, :set, :show, :use
-        ) # :nodoc:
-        private_constant :READ_QUERY
-
-        HIGH_PRECISION_CURRENT_TIMESTAMP = Arel.sql("CURRENT_TIMESTAMP(6)").freeze # :nodoc:
-        private_constant :HIGH_PRECISION_CURRENT_TIMESTAMP
-
-        def write_query?(sql) # :nodoc:
-          !READ_QUERY.match?(sql)
-        rescue ArgumentError # Invalid encoding
-          !READ_QUERY.match?(sql.b)
-        end
-
-        def explain(arel, binds = [])
-          sql     = "EXPLAIN #{to_sql(arel, binds)}"
-          start   = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-          result  = exec_query(sql, "EXPLAIN", binds)
-          elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
-
-          MySQL::ExplainPrettyPrinter.new.pp(result, elapsed)
-        end
-
-        def exec_query(sql, name = "SQL", binds = [], prepare: false, async: false)
-          result = execute(sql, name, async: async)
-          ActiveRecord::Result.new(result.fields, result.to_a)
-        end
-
-        alias exec_without_stmt exec_query
-
-        def exec_insert(sql, name, binds, pk = nil, sequence_name = nil)
-          execute(to_sql(sql, binds), name)
-        end
-
-        def exec_delete(sql, name = nil, binds = [])
-          result = execute(to_sql(sql, binds), name)
-          result.affected_rows
-        end
-
-        alias :exec_update :exec_delete
-
-        def high_precision_current_timestamp
-          HIGH_PRECISION_CURRENT_TIMESTAMP
-        end
-
-        private
-          def last_inserted_id(result)
-            result.last_insert_id
-          end
-      end
-
       ER_BAD_DB_ERROR = 1049
       ER_ACCESS_DENIED_ERROR = 1045
 
       ADAPTER_NAME = "Trilogy"
 
-      include DatabaseStatements
+      include Trilogy::DatabaseStatements
 
       SSL_MODES = {
-        SSL_MODE_DISABLED: Trilogy::SSL_DISABLED,
-        SSL_MODE_PREFERRED: Trilogy::SSL_PREFERRED_NOVERIFY,
-        SSL_MODE_REQUIRED: Trilogy::SSL_REQUIRED_NOVERIFY,
-        SSL_MODE_VERIFY_CA: Trilogy::SSL_VERIFY_CA,
-        SSL_MODE_VERIFY_IDENTITY: Trilogy::SSL_VERIFY_IDENTITY
+        SSL_MODE_DISABLED: ::Trilogy::SSL_DISABLED,
+        SSL_MODE_PREFERRED: ::Trilogy::SSL_PREFERRED_NOVERIFY,
+        SSL_MODE_REQUIRED: ::Trilogy::SSL_REQUIRED_NOVERIFY,
+        SSL_MODE_VERIFY_CA: ::Trilogy::SSL_VERIFY_CA,
+        SSL_MODE_VERIFY_IDENTITY: ::Trilogy::SSL_VERIFY_IDENTITY
       }.freeze
 
       class << self
         def new_client(config)
           config[:ssl_mode] = parse_ssl_mode(config[:ssl_mode]) if config[:ssl_mode]
           ::Trilogy.new(config)
-        rescue Trilogy::ConnectionError, Trilogy::ProtocolError => error
+        rescue ::Trilogy::ConnectionError, ::Trilogy::ProtocolError => error
           raise translate_connect_error(config, error)
         end
 
@@ -138,7 +87,6 @@ module ActiveRecord
           return mode if mode.is_a? Integer
 
           m = mode.to_s.upcase
-          # enable Mysql2 client compatibility
           m = "SSL_MODE_#{m}" unless m.start_with? "SSL_MODE_"
 
           SSL_MODES.fetch(m.to_sym, mode)
@@ -151,13 +99,26 @@ module ActiveRecord
           when ER_ACCESS_DENIED_ERROR
             ActiveRecord::DatabaseConnectionError.username_error(config[:username])
           else
-            if error.message.match?(/TRILOGY_DNS_ERROR/)
+            if error.message.include?("TRILOGY_DNS_ERROR")
               ActiveRecord::DatabaseConnectionError.hostname_error(config[:host])
             else
               ActiveRecord::ConnectionNotEstablished.new(error.message)
             end
           end
         end
+
+        private
+          def initialize_type_map(m)
+            super if ActiveRecord.version >= ::Gem::Version.new('7.0.a')
+
+            m.register_type(%r(char)i) do |sql_type|
+              limit = extract_limit(sql_type)
+              Type.lookup(:string, adapter: :trilogy, limit: limit)
+            end
+
+            m.register_type %r(^enum)i, Type.lookup(:string, adapter: :trilogy)
+            m.register_type %r(^set)i,  Type.lookup(:string, adapter: :trilogy)
+          end
       end
 
       def initialize(connection, logger, connection_options, config)
@@ -167,6 +128,8 @@ module ActiveRecord
           @config.fetch(:prepared_statements) { default_prepared_statements }
         )
       end
+
+      TYPE_MAP = Type::TypeMap.new.tap { |m| initialize_type_map(m) }
 
       def supports_json?
         !mariadb? && database_version >= "5.7.8"
@@ -207,8 +170,6 @@ module ActiveRecord
         @lock.synchronize do
           disconnect!
           connect
-        rescue StandardError => original_exception
-          raise translate_exception_class(original_exception, nil, nil)
         end
       end
 
@@ -220,41 +181,11 @@ module ActiveRecord
         end
       end
 
-      if ActiveRecord.version < ::Gem::Version.new('7.0.a') # ActiveRecord <= 6.1 support
-        def raw_execute(sql, name, uses_transaction: true, **_kwargs)
-          # Same as mark_transaction_written_if_write(sql)
-          transaction = current_transaction
-          if transaction.respond_to?(:written) && transaction.open?
-            transaction.written ||= write_query?(sql)
-          end
+      def execute(sql, name = nil, allow_retry: false, **kwargs)
+        sql = transform_query(sql)
+        check_if_write_query(sql)
 
-          log(sql, name) do
-            with_trilogy_connection(uses_transaction: uses_transaction) do |conn|
-              sync_timezone_changes(conn)
-              conn.query(sql)
-            end
-          end
-        end
-
-        def execute(sql, name = nil, **_kwargs)
-          raw_execute(sql, name, **_kwargs)
-        end
-      else # ActiveRecord 7.0 support
-        def raw_execute(sql, name, uses_transaction: true, async: false, allow_retry: false)
-          mark_transaction_written_if_write(sql)
-          log(sql, name, async: async) do
-            with_trilogy_connection(uses_transaction: uses_transaction, allow_retry: allow_retry) do |conn|
-              sync_timezone_changes(conn)
-              conn.query(sql)
-            end
-          end
-        end
-
-        def execute(sql, name = nil, **kwargs)
-          sql = transform_query(sql)
-          check_if_write_query(sql)
-          super
-        end
+        raw_execute(sql, name, allow_retry: allow_retry, **kwargs)
       end
 
       def active?
@@ -276,31 +207,39 @@ module ActiveRecord
       end
 
       def discard!
-        self.connection = nil
-      end
-
-      def each_hash(result)
-        return to_enum(:each_hash, result) unless block_given?
-
-        keys = result.fields.map(&:to_sym)
-        result.rows.each do |row|
-          hash = {}
-          idx = 0
-          row.each do |value|
-            hash[keys[idx]] = value
-            idx += 1
-          end
-          yield hash
+        super
+        unless connection.nil?
+          connection.discard!
+          self.connection = nil
         end
-
-        nil
-      end
-
-      def error_number(exception)
-        exception.error_code if exception.respond_to?(:error_code)
       end
 
       private
+        def text_type?(type)
+          TYPE_MAP.lookup(type).is_a?(Type::String) || TYPE_MAP.lookup(type).is_a?(Type::Text)
+        end
+
+        def each_hash(result)
+          return to_enum(:each_hash, result) unless block_given?
+
+          keys = result.fields.map(&:to_sym)
+          result.rows.each do |row|
+            hash = {}
+            idx = 0
+            row.each do |value|
+              hash[keys[idx]] = value
+              idx += 1
+            end
+            yield hash
+          end
+
+          nil
+        end
+
+        def error_number(exception)
+          exception.error_code if exception.respond_to?(:error_code)
+        end
+
         attr_accessor :connection
 
         def connect
@@ -311,15 +250,6 @@ module ActiveRecord
           connection&.close
           self.connection = nil
           connect
-        end
-
-        def sync_timezone_changes(conn)
-          # Sync any changes since connection last established.
-          if default_timezone == :local
-            conn.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
-          else
-            conn.query_flags &= ~::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
-          end
         end
 
         def execute_batch(statements, name = nil)
@@ -342,11 +272,11 @@ module ActiveRecord
           end
 
           with_trilogy_connection do |conn|
-            conn.set_server_option(Trilogy::SET_SERVER_MULTI_STATEMENTS_ON)
+            conn.set_server_option(::Trilogy::SET_SERVER_MULTI_STATEMENTS_ON)
 
             yield
           ensure
-            conn.set_server_option(Trilogy::SET_SERVER_MULTI_STATEMENTS_OFF)
+            conn.set_server_option(::Trilogy::SET_SERVER_MULTI_STATEMENTS_OFF)
           end
         end
 
@@ -398,6 +328,9 @@ module ActiveRecord
         end
 
         def translate_exception(exception, message:, sql:, binds:)
+          if exception.is_a?(::Trilogy::TimeoutError) && !exception.error_code
+            return ActiveRecord::AdapterTimeout.new(message, sql: sql, binds: binds)
+          end
           error_code = exception.error_code if exception.respond_to?(:error_code)
 
           ::TrilogyAdapter::LostConnectionExceptionTranslator.
@@ -413,6 +346,16 @@ module ActiveRecord
             @prepared_statements && !prepared_statements_disabled_cache.include?(object_id)
           end
         end
+
+        ActiveRecord::Type.register(:immutable_string, adapter: :trilogy) do |_, **args|
+          Type::ImmutableString.new(true: "1", false: "0", **args)
+        end
+
+        ActiveRecord::Type.register(:string, adapter: :trilogy) do |_, **args|
+          Type::String.new(true: "1", false: "0", **args)
+        end
+
+        ActiveRecord::Type.register(:unsigned_integer, Type::UnsignedInteger, adapter: :trilogy)
     end
 
     if ActiveRecord.version < ::Gem::Version.new('6.1.a') # For ActiveRecord <= 6.0
@@ -451,5 +394,7 @@ module ActiveRecord
         private_class_method :read
       end
     end
+
+    ActiveSupport.run_load_hooks(:active_record_trilogyadapter, TrilogyAdapter)
   end
 end
