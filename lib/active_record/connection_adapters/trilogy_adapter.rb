@@ -347,6 +347,15 @@ module ActiveRecord
           end
         end
 
+        def default_insert_value(column)
+          super unless column.auto_increment?
+        end
+
+        # https://mariadb.com/kb/en/analyze-statement/
+        def analyze_without_explain?
+          mariadb? && database_version >= "10.1.0"
+        end
+
         ActiveRecord::Type.register(:immutable_string, adapter: :trilogy) do |_, **args|
           Type::ImmutableString.new(true: "1", false: "0", **args)
         end

@@ -35,6 +35,21 @@ module ActiveRecord
           result
         end
 
+        def write_query?(sql) # :nodoc:
+          !READ_QUERY.match?(sql)
+        rescue ArgumentError # Invalid encoding
+          !READ_QUERY.match?(sql.b)
+        end
+
+        def explain(arel, binds = [], options = [])
+          sql     = build_explain_clause(options) + " " + to_sql(arel, binds)
+          start   = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          result  = internal_exec_query(sql, "EXPLAIN", binds)
+          elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+
+          MySQL::ExplainPrettyPrinter.new.pp(result, elapsed)
+        end
+
         def exec_query(sql, name = "SQL", binds = [], prepare: false, **kwargs)
           internal_exec_query(sql, name, binds, prepare: prepare, **kwargs)
         end
@@ -69,6 +84,18 @@ module ActiveRecord
 
         def high_precision_current_timestamp
           HIGH_PRECISION_CURRENT_TIMESTAMP
+        end
+
+        def build_explain_clause(options = [])
+          return "EXPLAIN" if options.empty?
+
+          explain_clause = "EXPLAIN #{options.join(" ").upcase}"
+
+          if analyze_without_explain? && explain_clause.include?("ANALYZE")
+            explain_clause.sub("EXPLAIN ", "")
+          else
+            explain_clause
+          end
         end
 
         private
