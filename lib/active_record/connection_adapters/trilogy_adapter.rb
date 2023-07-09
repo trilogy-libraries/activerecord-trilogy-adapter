@@ -181,13 +181,6 @@ module ActiveRecord
         end
       end
 
-      def execute(sql, name = nil, allow_retry: false, **kwargs)
-        sql = transform_query(sql)
-        check_if_write_query(sql)
-
-        raw_execute(sql, name, allow_retry: allow_retry, **kwargs)
-      end
-
       def active?
         return false if connection&.closed?
 
@@ -222,7 +215,7 @@ module ActiveRecord
         def each_hash(result)
           return to_enum(:each_hash, result) unless block_given?
 
-          keys = result.fields.map(&:to_sym)
+          keys = result.columns.map(&:to_sym)
           result.rows.each do |row|
             hash = {}
             idx = 0
@@ -250,46 +243,6 @@ module ActiveRecord
           connection&.close
           self.connection = nil
           connect
-        end
-
-        def execute_batch(statements, name = nil)
-          statements = statements.map { |sql| transform_query(sql) } if respond_to?(:transform_query)
-          combine_multi_statements(statements).each do |statement|
-            with_trilogy_connection do |conn|
-              raw_execute(statement, name)
-              conn.next_result while conn.more_results_exist?
-            end
-          end
-        end
-
-        def multi_statements_enabled?
-          !!@config[:multi_statement]
-        end
-
-        def with_multi_statements
-          if multi_statements_enabled?
-            return yield
-          end
-
-          with_trilogy_connection do |conn|
-            conn.set_server_option(::Trilogy::SET_SERVER_MULTI_STATEMENTS_ON)
-
-            yield
-          ensure
-            conn.set_server_option(::Trilogy::SET_SERVER_MULTI_STATEMENTS_OFF)
-          end
-        end
-
-        def combine_multi_statements(total_sql)
-          total_sql.each_with_object([]) do |sql, total_sql_chunks|
-            previous_packet = total_sql_chunks.last
-            if max_allowed_packet_reached?(sql, previous_packet)
-              total_sql_chunks << +sql
-            else
-              previous_packet << ";\n"
-              previous_packet << sql
-            end
-          end
         end
 
         def max_allowed_packet_reached?(current_packet, previous_packet)

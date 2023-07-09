@@ -12,6 +12,15 @@ module ActiveRecord
         HIGH_PRECISION_CURRENT_TIMESTAMP = Arel.sql("CURRENT_TIMESTAMP(6)").freeze # :nodoc:
         private_constant :HIGH_PRECISION_CURRENT_TIMESTAMP
 
+        def execute(sql, name = nil, **kwargs)
+          sql = transform_query(sql)
+          check_if_write_query(sql)
+          mark_transaction_written_if_write(sql)
+
+          result = raw_execute(sql, name, **kwargs)
+          ActiveRecord::Result.new(result.fields, result.to_a)
+        end
+
         def write_query?(sql) # :nodoc:
           !READ_QUERY.match?(sql)
         rescue ArgumentError # Invalid encoding
@@ -73,35 +82,26 @@ module ActiveRecord
 
         private
           if ActiveRecord.version < ::Gem::Version.new('7.0.a') # ActiveRecord <= 6.1 support
-            def raw_execute(sql, name, uses_transaction: true, **_kwargs)
-              # Same as mark_transaction_written_if_write(sql)
-              transaction = current_transaction
-              if transaction.respond_to?(:written) && transaction.open?
-                transaction.written ||= write_query?(sql)
-              end
-
-              log(sql, name) do
-                with_trilogy_connection(uses_transaction: uses_transaction) do |conn|
-                  sync_timezone_changes(conn)
-                  conn.query(sql)
-                end
-              end
-            end
-
             def transform_query(sql); sql; end
             def check_if_write_query(*args); end
 
             if ActiveRecord.version < ::Gem::Version.new('6.1.a') # ActiveRecord <= 6.0 support
-              def mark_transaction_written_if_write(*args); end
-            end
-          else # ActiveRecord 7.0 support
-            def raw_execute(sql, name, uses_transaction: true, async: false, allow_retry: false)
-              mark_transaction_written_if_write(sql)
-              log(sql, name, async: async) do
-                with_trilogy_connection(uses_transaction: uses_transaction, allow_retry: allow_retry) do |conn|
-                  sync_timezone_changes(conn)
-                  conn.query(sql)
+              def mark_transaction_written_if_write(sql)
+                transaction = current_transaction
+                if transaction.respond_to?(:written) && transaction.open?
+                  transaction.written ||= write_query?(sql)
                 end
+              end
+            end
+          end
+
+          def raw_execute(sql, name, async: false, uses_transaction: true)
+            log_kwargs = {}
+            log_kwargs[:async] = async if ActiveRecord.version >= ::Gem::Version.new('7.0.a')
+            log(sql, name, **log_kwargs) do
+              with_trilogy_connection(uses_transaction: uses_transaction) do |conn|
+                sync_timezone_changes(conn)
+                conn.query(sql)
               end
             end
           end
@@ -116,6 +116,46 @@ module ActiveRecord
               conn.query_flags |= ::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
             else
               conn.query_flags &= ~::Trilogy::QUERY_FLAGS_LOCAL_TIMEZONE
+            end
+          end
+
+          def execute_batch(statements, name = nil)
+            statements = statements.map { |sql| transform_query(sql) } if respond_to?(:transform_query)
+            combine_multi_statements(statements).each do |statement|
+              with_trilogy_connection do |conn|
+                raw_execute(statement, name)
+                conn.next_result while conn.more_results_exist?
+              end
+            end
+          end
+
+          def multi_statements_enabled?
+            !!@config[:multi_statement]
+          end
+
+          def with_multi_statements
+            if multi_statements_enabled?
+              return yield
+            end
+
+            with_trilogy_connection do |conn|
+              conn.set_server_option(::Trilogy::SET_SERVER_MULTI_STATEMENTS_ON)
+
+              yield
+            ensure
+              conn.set_server_option(::Trilogy::SET_SERVER_MULTI_STATEMENTS_OFF)
+            end
+          end
+
+          def combine_multi_statements(total_sql)
+            total_sql.each_with_object([]) do |sql, total_sql_chunks|
+              previous_packet = total_sql_chunks.last
+              if max_allowed_packet_reached?(sql, previous_packet)
+                total_sql_chunks << +sql
+              else
+                previous_packet << ";\n"
+                previous_packet << sql
+              end
             end
           end
       end
