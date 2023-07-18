@@ -107,6 +107,38 @@ module ActiveRecord
           end
         end
 
+        def dbconsole(config, options = {})
+          mysql_config = if ActiveRecord.version < ::Gem::Version.new('6.1.a')
+                           config.config
+                         else
+                           config.configuration_hash
+                         end
+
+          args = {
+            host: "--host",
+            port: "--port",
+            socket: "--socket",
+            username: "--user",
+            encoding: "--default-character-set",
+            sslca: "--ssl-ca",
+            sslcert: "--ssl-cert",
+            sslcapath: "--ssl-capath",
+            sslcipher: "--ssl-cipher",
+            sslkey: "--ssl-key",
+            ssl_mode: "--ssl-mode"
+          }.filter_map { |opt, arg| "#{arg}=#{mysql_config[opt]}" if mysql_config[opt] }
+
+          if mysql_config[:password] && options[:include_password]
+            args << "--password=#{mysql_config[:password]}"
+          elsif mysql_config[:password] && !mysql_config[:password].to_s.empty?
+            args << "-p"
+          end
+
+          args << mysql_config[:database]
+
+          find_cmd_and_exec(["mysql", "mysql5"], *args)
+        end
+
         private
           def initialize_type_map(m)
             super if ActiveRecord.version >= ::Gem::Version.new('7.0.a')
@@ -211,6 +243,34 @@ module ActiveRecord
         unless connection.nil?
           connection.discard!
           self.connection = nil
+        end
+      end
+
+      def self.find_cmd_and_exec(commands, *args) # :doc:
+        commands = Array(commands)
+
+        dirs_on_path = ENV["PATH"].to_s.split(File::PATH_SEPARATOR)
+        unless (ext = RbConfig::CONFIG["EXEEXT"]).empty?
+          commands = commands.map { |cmd| "#{cmd}#{ext}" }
+        end
+
+        full_path_command = nil
+        found = commands.detect do |cmd|
+          dirs_on_path.detect do |path|
+            full_path_command = File.join(path, cmd)
+            begin
+              stat = File.stat(full_path_command)
+            rescue SystemCallError
+            else
+              stat.file? && stat.executable?
+            end
+          end
+        end
+
+        if found
+          exec full_path_command, *args
+        else
+          abort("Couldn't find database client: #{commands.join(', ')}. Check your $PATH and try again.")
         end
       end
 
