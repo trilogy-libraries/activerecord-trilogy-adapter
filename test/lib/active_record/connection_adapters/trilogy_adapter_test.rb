@@ -324,7 +324,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     @adapter.execute("INSERT into posts (title, body, kind, created_at, updated_at) VALUES ('title', 'body', 'a kind of post', '#{time}', '#{time}');")
     result = @adapter.execute("select * from posts limit 1;")
 
-    result.each_hash do |hsh|
+    result.to_a do |hsh|
       assert_equal ruby_time, hsh["created_at"]
       assert_equal ruby_time, hsh["updated_at"]
     end
@@ -342,7 +342,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     @adapter.execute("INSERT into posts (title, body, kind, created_at, updated_at) VALUES ('title', 'body', 'a kind of post', '#{time}', '#{time}');")
     result = @adapter.execute("select * from posts limit 1;")
 
-    result.each_hash do |hsh|
+    result.to_a do |hsh|
       assert_equal ruby_time, hsh["created_at"]
       assert_equal ruby_time, hsh["updated_at"]
     end
@@ -420,7 +420,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     @adapter.execute("INSERT into posts (title, body, kind, created_at, updated_at) VALUES ('title', 'body', 'a kind of post', '#{time}', '#{time}');")
     result = @adapter.execute("select * from posts limit 1;")
 
-    result.each_hash do |hsh|
+    result.to_a do |hsh|
       assert_equal ruby_time, hsh["created_at"]
       assert_equal ruby_time, hsh["updated_at"]
     end
@@ -432,7 +432,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     ruby_utc_time = Time.utc(2019, 5, 31, 12, 52)
     utc_result = @adapter.execute("select * from posts limit 1;")
 
-    utc_result.each_hash do |hsh|
+    utc_result.to_a do |hsh|
       assert_equal ruby_utc_time, hsh["created_at"]
       assert_equal ruby_utc_time, hsh["updated_at"]
     end
@@ -444,7 +444,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
 
   test "#execute answers results for valid query" do
     result = @adapter.execute "SELECT * FROM posts;"
-    assert_equal %w[id author_id title body kind created_at updated_at], result.fields
+    assert_equal %w[id author_id title body kind created_at updated_at], result.columns
   end
 
   test "#execute answers results for valid query after reconnect" do
@@ -464,7 +464,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     adapter.reconnect!
     result = adapter.execute "SELECT * FROM posts;"
 
-    assert_equal %w[id author_id title body kind created_at updated_at], result.fields
+    assert_equal %w[id author_id title body kind created_at updated_at], result.columns
     assert mock_connection.verify
     mock_connection.close
   end
@@ -603,7 +603,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   test "#execute answers result with valid SQL" do
     result = @adapter.execute "SELECT * FROM posts;"
 
-    assert_equal %w[id author_id title body kind created_at updated_at], result.fields
+    assert_equal %w[id author_id title body kind created_at updated_at], result.columns
     assert_equal [], result.rows
   end
 
@@ -842,8 +842,9 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
 
     mock_connection = Minitest::Mock.new Trilogy.new(@configuration)
     adapter = trilogy_adapter_with_connection(mock_connection)
-    mock_connection.expect :query, nil, [sql + " /* it works */"]
-
+    mock_result = Minitest::Mock.new ::Trilogy::Result.new
+    mock_result.expect :to_a, []
+    mock_connection.expect :query, mock_result, [sql + " /* it works */"]
     adapter.execute sql
 
     assert mock_connection.verify
