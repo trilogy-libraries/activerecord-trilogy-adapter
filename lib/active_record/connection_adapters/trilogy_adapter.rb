@@ -297,6 +297,7 @@ module ActiveRecord
 
         def connect
           self.connection = self.class.new_client(@config)
+          configure_connection
         end
 
         def reconnect
