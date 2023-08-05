@@ -188,7 +188,7 @@ module ActiveRecord
       end
 
       def quote_string(string)
-        with_trilogy_connection(allow_retry: true, uses_transaction: false) do |conn|
+        with_trilogy_connection(allow_retry: true, materialize_transactions: false) do |conn|
           conn.escape(string)
         end
       end
@@ -205,10 +205,10 @@ module ActiveRecord
         end
       end
 
-      def with_trilogy_connection(uses_transaction: true, **_kwargs)
+      def with_trilogy_connection(materialize_transactions: true, **_kwargs)
         @lock.synchronize do
           verify!
-          materialize_transactions if uses_transaction
+          materialize_transactions if materialize_transactions
           yield connection
         end
       end
@@ -325,7 +325,7 @@ module ActiveRecord
         end
 
         def get_full_version
-          with_trilogy_connection(allow_retry: true, uses_transaction: false) do |conn|
+          with_trilogy_connection(allow_retry: true, materialize_transactions: false) do |conn|
             conn.server_info[:version]
           end
         end
