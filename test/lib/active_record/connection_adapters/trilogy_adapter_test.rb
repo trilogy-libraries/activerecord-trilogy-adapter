@@ -79,7 +79,9 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
   end
 
   test "#supports_json answers true without Maria DB and greater version" do
-    assert @adapter.supports_json?
+    @adapter.stub(:mariadb?, false) do
+      assert_equal true, @adapter.supports_json?
+    end
   end
 
   test "#supports_json answers false without Maria DB and lesser version" do
