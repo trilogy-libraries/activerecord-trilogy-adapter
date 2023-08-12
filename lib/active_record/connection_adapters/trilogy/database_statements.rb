@@ -122,11 +122,11 @@ module ActiveRecord
             end
           end
 
-          def raw_execute(sql, name, async: false, uses_transaction: true)
+          def raw_execute(sql, name, async: false, materialize_transactions: true)
             log_kwargs = {}
             log_kwargs[:async] = async if ActiveRecord.version >= ::Gem::Version.new('7.0.a')
             log(sql, name, **log_kwargs) do
-              with_trilogy_connection(uses_transaction: uses_transaction) do |conn|
+              with_trilogy_connection(materialize_transactions: materialize_transactions) do |conn|
                 sync_timezone_changes(conn)
                 conn.query(sql)
               end

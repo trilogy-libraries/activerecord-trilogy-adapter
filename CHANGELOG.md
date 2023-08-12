@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Remove translation of exception on reconnect. #49
+- Backport Rails 7.1a refactors and tweaks. #50, #51, #57, #58, #59
+
+### Fixed
+
+- Fix #53 - Implement dbconsole support. #55
+- Fix #54 - Apply connection configuration. #56
+
 ## 3.1.0
 
 ### Changed
