@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## 3.1.1
+
 ### Changed
 
 - Remove translation of exception on reconnect. #49
