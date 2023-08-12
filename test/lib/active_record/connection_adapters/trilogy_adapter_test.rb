@@ -874,6 +874,12 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     assert adapter.active?
   end
 
+  test "sql_mode is applied correctly" do
+    adapter = trilogy_adapter(variables: { sql_mode: "STRICT_ALL_TABLES" })
+    current_sql_mode = adapter.execute('SELECT @@SESSION.sql_mode;').rows.first
+    assert_equal current_sql_mode, ["STRICT_ALL_TABLES"]
+  end
+
   def trilogy_adapter_with_connection(connection, **config_overrides)
     ActiveRecord::ConnectionAdapters::TrilogyAdapter
       .new(connection, nil, {}, @configuration.merge(config_overrides))
