@@ -44,13 +44,6 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     end
   end
 
-  test ".new_client on access denied error" do
-    configuration = @configuration.merge(username: "unknown")
-    assert_raises ActiveRecord::DatabaseConnectionError do
-      @adapter.class.new_client(configuration)
-    end
-  end
-
   test ".new_client on host error" do
     configuration = @configuration.merge(host: "unknown")
     assert_raises ActiveRecord::DatabaseConnectionError do
@@ -457,7 +450,7 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     server_shutdown_error.instance_variable_set(:@error_code, 1053)
     mock_connection.expect(:query, nil) { raise server_shutdown_error }
 
-    assert_raises(TrilogyAdapter::Errors::ServerShutdown) do
+    assert_raises(ActiveRecord::StatementInvalid) do
       adapter.execute "SELECT * FROM posts;"
     end
 
@@ -772,13 +765,13 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     assert_equal 123, @adapter.send(:error_number, exception)
   end
 
-  test "read timeout raises ActiveRecord::AdapterTimeout" do
+  test "read timeout raises ActiveRecord::StatementInvalid" do
     ActiveRecord::Base.establish_connection(@configuration.merge("read_timeout" => 1))
 
-    error = assert_raises(ActiveRecord::AdapterTimeout) do
+    error = assert_raises(ActiveRecord::StatementInvalid) do
       ActiveRecord::Base.connection.execute("SELECT SLEEP(2)")
     end
-    assert_kind_of ActiveRecord::QueryAborted, error
+    assert_kind_of ActiveRecord::StatementInvalid, error
 
     assert_equal Trilogy::TimeoutError, error.cause.class
   end

@@ -5,7 +5,6 @@ require "active_record/connection_adapters/abstract_mysql_adapter"
 
 require "active_record/tasks/trilogy_database_tasks"
 require "active_record/connection_adapters/trilogy/database_statements"
-require "trilogy_adapter/lost_connection_exception_translator"
 
 module ActiveRecord
   # ActiveRecord <= 6.1 support
@@ -61,7 +60,9 @@ module ActiveRecord
   module ConnectionAdapters
     class TrilogyAdapter < ::ActiveRecord::ConnectionAdapters::AbstractMysqlAdapter
       ER_BAD_DB_ERROR = 1049
+      ER_DBACCESS_DENIED_ERROR = 1044
       ER_ACCESS_DENIED_ERROR = 1045
+      ER_SERVER_SHUTDOWN = 1053
 
       ADAPTER_NAME = "Trilogy"
 
@@ -339,16 +340,6 @@ module ActiveRecord
           def default_timezone
             ActiveRecord.default_timezone
           end
-        end
-
-        def translate_exception(exception, message:, sql:, binds:)
-          if exception.is_a?(::Trilogy::TimeoutError) && !exception.error_code
-            return ActiveRecord::AdapterTimeout.new(message, sql: sql, binds: binds)
-          end
-          error_code = exception.error_code if exception.respond_to?(:error_code)
-
-          ::TrilogyAdapter::LostConnectionExceptionTranslator.
-            new(exception, message, error_code).translate || super
         end
 
         def default_prepared_statements
