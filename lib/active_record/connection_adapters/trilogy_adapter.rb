@@ -209,7 +209,7 @@ module ActiveRecord
       def with_trilogy_connection(materialize_transactions: true, **_kwargs)
         @lock.synchronize do
           verify!
-          materialize_transactions if materialize_transactions
+          self.materialize_transactions if materialize_transactions
           yield connection
         end
       end
