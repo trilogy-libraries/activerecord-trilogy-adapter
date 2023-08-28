@@ -5,6 +5,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## 3.1.2
+
+### Fixed
+
+- Correct reference to materialize_transactions in with_trilogy_connection #61
+
 ## 3.1.1
 
 ### Changed
