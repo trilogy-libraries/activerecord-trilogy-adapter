@@ -22,7 +22,7 @@ jobs:
       DB_HOST: 127.0.0.1
       DB_PORT: 3306
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Cache .gem files
       uses: actions/cache@v3
       with:
