@@ -21,21 +21,6 @@ module ActiveRecord
           ActiveRecord::Result.new(result.fields, result.to_a)
         end
 
-        def write_query?(sql) # :nodoc:
-          !READ_QUERY.match?(sql)
-        rescue ArgumentError # Invalid encoding
-          !READ_QUERY.match?(sql.b)
-        end
-
-        def explain(arel, binds = [])
-          sql     = "EXPLAIN #{to_sql(arel, binds)}"
-          start   = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-          result  = internal_exec_query(sql, "EXPLAIN", binds)
-          elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
-
-          MySQL::ExplainPrettyPrinter.new.pp(result, elapsed)
-        end
-
         def select_all(*, **) # :nodoc:
           result = super
           with_trilogy_connection do |conn|
