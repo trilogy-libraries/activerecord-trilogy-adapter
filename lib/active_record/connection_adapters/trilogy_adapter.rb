@@ -214,6 +214,10 @@ module ActiveRecord
         end
       end
 
+      def connected?
+        !connection.nil?
+      end
+
       def active?
         return false if connection&.closed?
 
