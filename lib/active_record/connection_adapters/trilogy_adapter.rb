@@ -155,6 +155,12 @@ module ActiveRecord
       end
 
       def initialize(connection, logger, connection_options, config)
+        config = config.dup
+
+        # Trilogy ignores `socket` if `host` is set. We want the opposite to allow
+        # configuring UNIX domain sockets via `DATABASE_URL`.
+        config.delete(:host) if config[:socket]
+
         super
         # Ensure that we're treating prepared_statements in the same way that Rails 7.1 does
         @prepared_statements = self.class.type_cast_config_to_boolean(
