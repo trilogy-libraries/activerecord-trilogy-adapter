@@ -24,7 +24,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Cache .gem files
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         key: gems-${{ matrix.rails_version }}-${{ hashFiles('Gemfile', '*.gemspec') }}
         path: vendor/cache
