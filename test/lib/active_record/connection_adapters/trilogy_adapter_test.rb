@@ -875,6 +875,13 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     assert_equal current_sql_mode, ["STRICT_ALL_TABLES"]
   end
 
+  test "socket has precedence over host" do
+    error = assert_raises ActiveRecord::ConnectionNotEstablished do
+      trilogy_adapter(host: "invalid", port: 12345, socket: "/var/invalid.sock").connect!
+    end
+    assert_includes error.message, "/var/invalid.sock"
+  end
+
   def trilogy_adapter_with_connection(connection, **config_overrides)
     ActiveRecord::ConnectionAdapters::TrilogyAdapter
       .new(connection, nil, {}, @configuration.merge(config_overrides))
