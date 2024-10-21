@@ -4,7 +4,7 @@ Ruby on Rails Active Record database adapter for [Trilogy](https://github.com/tr
 
 This gem offers Trilogy support for versions of Active Record prior to v7.1. Currently supports:
 
-- ⚠️ Rails v7.1+ includes Trilogy support by default making this gem unnecessary
+- ⚠️ Rails v7.1+ includes Trilogy support by default making this gem unnecessary; do add `gem "trilogy"` to your Gemfile
 - ✅ Rails v7.0.x
 - ✅ Rails v6.1.x
 - ✅ Rails v6.0.x
