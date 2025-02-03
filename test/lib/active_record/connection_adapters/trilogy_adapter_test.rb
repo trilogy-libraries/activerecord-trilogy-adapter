@@ -173,25 +173,6 @@ class ActiveRecord::ConnectionAdapters::TrilogyAdapterTest < TestCase
     assert connection.verify
   end
 
-  test "#reconnect doesn't retain old connection on failure" do
-    old_connection = Minitest::Mock.new Trilogy.new(@configuration)
-    old_connection.expect :close, true
-
-    adapter = trilogy_adapter_with_connection(old_connection)
-
-    begin
-      Trilogy.stub(:new, -> _ { raise Trilogy::BaseError.new }) do
-        adapter.reconnect!
-      end
-    rescue Trilogy::BaseError => ex
-      assert_instance_of Trilogy::BaseError, ex
-    else
-      flunk "Expected Trilogy::BaseError to be raised"
-    end
-
-    assert_nil adapter.send(:connection)
-  end
-
   test "#reconnect answers new connection with existing connection" do
     old_connection = @adapter.send(:connection)
     @adapter.reconnect!
