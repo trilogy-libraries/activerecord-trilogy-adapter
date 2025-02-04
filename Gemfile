@@ -11,3 +11,7 @@ end
 gem "trilogy"
 
 gemspec
+
+# Separately require this due to concurrent_ruby 1.3.5 and later removing the
+# dependency to logger
+require "logger"
