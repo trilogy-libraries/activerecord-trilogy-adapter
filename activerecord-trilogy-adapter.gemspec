@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.email = ["opensource+trilogy@github.com"]
   spec.homepage = "https://github.com/trilogy-libraries/activerecord-trilogy-adapter"
   spec.summary = "Active Record adapter for https://github.com/trilogy-libraries/trilogy."
-  spec.description = = <<~EOF
+  spec.description = <<~EOF
     This gem is only needed before Rails 7.1, where the trilogy adapter is built in. 
     When you upgrade to a version after 7.1.a, replace this with `gem "trilogy"` to ensure
     that trilogy itself is available.
