@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## 3.2.0
+
+### Changed
+
+- Documentation update #76
+
+### Fixed
+
+- Fix #64 and #67 - Allow socket usage in DATABASE_URL #71
+- Fix #81 - "private method `error_number' called for ...TrilogyAdapter" #82
+
 ## 3.1.2
 
 ### Fixed
