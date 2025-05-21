@@ -250,6 +250,10 @@ module ActiveRecord
         end
       end
 
+      def error_number(exception)
+        exception.error_code if exception.respond_to?(:error_code)
+      end
+
       def self.find_cmd_and_exec(commands, *args) # :doc:
         commands = Array(commands)
 
@@ -298,10 +302,6 @@ module ActiveRecord
           end
 
           nil
-        end
-
-        def error_number(exception)
-          exception.error_code if exception.respond_to?(:error_code)
         end
 
         attr_accessor :connection
